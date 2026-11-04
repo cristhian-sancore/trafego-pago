@@ -31,7 +31,7 @@ services:
       - DATABASE_URL=postgresql://trafegouser:trafegosecret2026_db@trafego_postgres:5432/trafegodb?schema=public
       - JWT_SECRET=trafego_pago_master_jwt_secret_token_2026
     ports:
-      - "3001:3001"
+      - "3011:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,7 +47,7 @@ services:
     container_name: trafego_frontend
     restart: always
     ports:
-      - "3000:80"
+      - "3010:80"
     depends_on:
       - backend
     networks:
