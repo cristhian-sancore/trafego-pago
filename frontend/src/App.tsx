@@ -33,7 +33,9 @@ import {
   Clock,
   Sparkles,
   ShoppingBag,
-  Tag
+  Tag,
+  Rocket,
+  Key
 } from 'lucide-react';
 import {
   Platform,
@@ -510,8 +512,19 @@ export default function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [recoveryUserFound, setRecoveryUserFound] = useState<any>(null);
 
-  // Navegação: 'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'utms' | 'clients' | 'integrations' | 'admin'
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'utms' | 'clients' | 'integrations' | 'admin'>('dashboard');
+  // Navegação: 'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'utms' | 'clients' | 'integrations' | 'admin' | 'easy_ad'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'utms' | 'clients' | 'integrations' | 'admin' | 'easy_ad'>('dashboard');
+
+  // Estados do Assistente Fácil de Anúncio (para Clientes Leigos)
+  const [easyProduct, setEasyProduct] = useState('');
+  const [easyGoal, setEasyGoal] = useState<'WHATSAPP' | 'WEBSITE'>('WHATSAPP');
+  const [easyBudget, setEasyBudget] = useState('30');
+  const [easyGeneratedText, setEasyGeneratedText] = useState('');
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+  // Modal de Compartilhar Acesso do Cliente
+  const [selectedClientForAccess, setSelectedClientForAccess] = useState<ClientCompanyDetail | null>(null);
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
 
   // Estados com LocalStorage
   const [clientCompanies, setClientCompanies] = useState<ClientCompanyDetail[]>(() => {
@@ -1236,6 +1249,94 @@ export default function App() {
     }
   };
 
+  // 4. Assistente Fácil de Anúncios (Para Clientes Leigos)
+  const handleGenerateEasyCopy = () => {
+    if (!easyProduct.trim()) {
+      alert('Por favor, informe o que você deseja promover (ex: Pizza em dobro, limpeza dental, curso de inglês, etc.)');
+      return;
+    }
+    setIsGeneratingAi(true);
+    setTimeout(() => {
+      const niche = activeCompany.niche || 'Geral';
+      const promptCopies: Record<string, string> = {
+        'Moda': `✨ Procurando o look perfeito? Chegou a nova coleção de ${easyProduct} com frete grátis e parcelamento sem juros! Clique no botão abaixo e fale com nossa equipe no WhatsApp para garantir o seu antes que acabe! 👇`,
+        'Odonto': `😁 Recupere a confiança do seu sorriso! Aproveite condições especiais para ${easyProduct} com atendimento humanizado e tecnologia de ponta. Clique no botão e agende sua avaliação no WhatsApp hoje mesmo! 📲`,
+        'Imóveis': `🏡 Encontre o imóvel dos seus sonhos! Destaque exclusivo para ${easyProduct} em localização privilegiada. Toque em Saiba Mais para receber o book completo e falar com um consultor! 🔑`
+      };
+
+      const matchedCopy = Object.entries(promptCopies).find(([k]) => niche.toLowerCase().includes(k.toLowerCase()));
+      const finalCopy = matchedCopy
+        ? matchedCopy[1]
+        : `🔥 Super oportunidade! ${easyProduct} com condições exclusivas por tempo limitado. Clique no botão e fale conosco direto no WhatsApp para tirar suas dúvidas e aproveitar! 🚀`;
+
+      setEasyGeneratedText(finalCopy);
+      setIsGeneratingAi(false);
+    }, 500);
+  };
+
+  const handlePublishEasyAd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!easyProduct) return;
+
+    const newCamp: Campaign = {
+      id: `camp-${Date.now()}`,
+      companyId: selectedCompanyId,
+      platform: easyGoal === 'WHATSAPP' ? 'META' : 'GOOGLE',
+      name: `[FÁCIL] ${easyProduct}`,
+      objective: easyGoal === 'WHATSAPP' ? 'Mensagens no WhatsApp' : 'Tráfego no Site',
+      status: 'ACTIVE',
+      dailyBudget: Number(easyBudget) || 30,
+      spendToday: 0,
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      cpa: 0,
+      roas: 0,
+      autopilotStatus: 'Anúncio Ativo e Otimizado',
+      adCopy: easyGeneratedText || `Confira as novidades de ${easyProduct}!`,
+      targetUrl: easyGoal === 'WHATSAPP'
+        ? `https://wa.me/${(activeCompany.whatsappContact || '5565996772226').replace(/\D/g, '')}`
+        : 'https://suaempresa.com.br'
+    };
+
+    setCampaigns(prev => [newCamp, ...prev]);
+    alert(`🎉 Parabéns! Seu anúncio de "${easyProduct}" foi publicado com sucesso e já está no ar para clientes da sua região!`);
+    setActiveTab('campaigns');
+    setEasyProduct('');
+    setEasyGeneratedText('');
+  };
+
+  // 5. Enviar Dados de Acesso para o Cliente via WhatsApp (Para o Gestor da Agência)
+  const handleSendClientAccessWhatsApp = async (client: ClientCompanyDetail) => {
+    const userMatched = systemUsers.find(u => u.companyId === client.id) || {
+      username: client.name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 15),
+      password: '123'
+    };
+
+    const cleanWpp = client.whatsappContact.replace(/\D/g, '');
+    const msg = `👋 Olá *${client.ownerContact || client.name}*!\n\n` +
+      `Seu acesso exclusivo à plataforma de tráfego pago *NexusAds* está pronto! 🚀\n\n` +
+      `🔗 *Acesse aqui:* https://socialpulse.cristhiansancore.com.br/\n` +
+      `👤 *Seu Usuário:* @${userMatched.username}\n` +
+      `🔑 *Sua Senha:* ${userMatched.password}\n\n` +
+      `Nós já deixamos todas as conexões do Instagram, Facebook e WhatsApp 100% configuradas para você. É só entrar e acompanhar seus resultados ou criar novos anúncios com 1 clique!`;
+
+    try {
+      await fetch('/api/evolution/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instance: client.evolutionInstance || 'meu',
+          number: cleanWpp,
+          text: msg
+        })
+      });
+      alert(`Dados de login enviados no WhatsApp do cliente (${client.whatsappContact}) com sucesso!`);
+    } catch (e: any) {
+      alert(`Erro ao enviar WhatsApp: ${e.message}`);
+    }
+  };
+
   // Super Admin Handlers
   const handleOpenEditUser = (user: SystemUserRecord) => {
     setEditingUser({ ...user });
@@ -1780,137 +1881,234 @@ export default function App() {
         {/* MENU LATERAL */}
         <aside className="w-64 border-r border-slate-800/80 bg-slate-900/40 p-4 flex flex-col justify-between shrink-0">
           <nav className="space-y-1.5">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              Visão Geral
-            </button>
+            {/* MODO CLIENTE SIMPLIFICADO */}
+            {currentUser.role === 'CLIENT_VIEWER' ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'dashboard'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  Meu Desempenho
+                </button>
 
-            <button
-              onClick={() => setActiveTab('campaigns')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'campaigns'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Target className="w-4 h-4" />
-                Campanhas & Anúncios
-              </div>
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 rounded">
-                {filteredCampaigns.length}
-              </span>
-            </button>
+                <button
+                  onClick={() => setActiveTab('easy_ad')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                    activeTab === 'easy_ad'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
+                      : 'bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 border border-emerald-500/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Rocket className="w-4 h-4 text-emerald-400" />
+                    🚀 Anunciar Rápido
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-emerald-500/20 text-emerald-200 rounded">
+                    IA
+                  </span>
+                </button>
 
-            <button
-              onClick={() => setActiveTab('autopilot')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'autopilot'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Sliders className="w-4 h-4" />
-                Piloto & Horários
-              </div>
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded">
-                {filteredRules.length}
-              </span>
-            </button>
+                <button
+                  onClick={() => setActiveTab('campaigns')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'campaigns'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Target className="w-4 h-4" />
+                    Meus Anúncios no Ar
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 rounded">
+                    {filteredCampaigns.length}
+                  </span>
+                </button>
 
-            <button
-              onClick={() => setActiveTab('inbox')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'inbox'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-4 h-4" />
-                Caixa & Vendas WhatsApp
-              </div>
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 rounded">
-                {filteredConversations.length}
-              </span>
-            </button>
+                <button
+                  onClick={() => setActiveTab('inbox')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'inbox'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-4 h-4" />
+                    Clientes do WhatsApp
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 rounded">
+                    {filteredConversations.length}
+                  </span>
+                </button>
 
-            <button
-              onClick={() => setActiveTab('utms')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'utms'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Link2 className="w-4 h-4" />
-                Gerador de UTMs
-              </div>
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 rounded">
-                {filteredUtms.length}
-              </span>
-            </button>
+                <button
+                  onClick={() => setIsReportModalOpen(true)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all text-slate-300 hover:bg-slate-900 border border-slate-800/80 mt-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-4 h-4 text-indigo-400" />
+                    Relatório Mensal
+                  </div>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-500" />
+                </button>
+              </>
+            ) : (
+              /* MODO AGÊNCIA / SUPER ADMIN */
+              <>
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'dashboard'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  Visão Geral
+                </button>
 
-            <button
-              onClick={() => setActiveTab('integrations')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'integrations'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Share2 className="w-4 h-4" />
-                Conectar Redes & Evolution
-              </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            </button>
+                <button
+                  onClick={() => setActiveTab('easy_ad')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'easy_ad'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-emerald-400 hover:bg-emerald-950/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Rocket className="w-4 h-4" />
+                    Anunciar Rápido (Modo Fácil)
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 rounded">
+                    IA
+                  </span>
+                </button>
 
-            {currentUser.role !== 'CLIENT_VIEWER' && (
-              <button
-                onClick={() => setActiveTab('clients')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  activeTab === 'clients'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                    : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Building2 className="w-4 h-4" />
-                  Empresas / Clientes
-                </div>
-                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 rounded">
-                  {clientCompanies.length}
-                </span>
-              </button>
-            )}
+                <button
+                  onClick={() => setActiveTab('campaigns')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'campaigns'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Target className="w-4 h-4" />
+                    Campanhas & Anúncios
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 rounded">
+                    {filteredCampaigns.length}
+                  </span>
+                </button>
 
-            {currentUser.role === 'SUPER_ADMIN' && (
-              <button
-                onClick={() => setActiveTab('admin')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  activeTab === 'admin'
-                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
-                    : 'text-amber-400 hover:bg-amber-950/40 hover:text-amber-300'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <UserCheck className="w-4 h-4" />
-                  Usuários & Admin
-                </div>
-                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-200 rounded">
-                  {systemUsers.length}
-                </span>
-              </button>
+                <button
+                  onClick={() => setActiveTab('autopilot')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'autopilot'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Sliders className="w-4 h-4" />
+                    Piloto & Horários
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded">
+                    {filteredRules.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('inbox')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'inbox'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-4 h-4" />
+                    Caixa & Vendas WhatsApp
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 rounded">
+                    {filteredConversations.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('utms')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'utms'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Link2 className="w-4 h-4" />
+                    Gerador de UTMs
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 rounded">
+                    {filteredUtms.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('integrations')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'integrations'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Share2 className="w-4 h-4" />
+                    Conectar Redes & Evolution
+                  </div>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('clients')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    activeTab === 'clients'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Building2 className="w-4 h-4" />
+                    Empresas / Clientes
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 rounded">
+                    {clientCompanies.length}
+                  </span>
+                </button>
+
+                {currentUser.role === 'SUPER_ADMIN' && (
+                  <button
+                    onClick={() => setActiveTab('admin')}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      activeTab === 'admin'
+                        ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
+                        : 'text-amber-400 hover:bg-amber-950/40 hover:text-amber-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <UserCheck className="w-4 h-4" />
+                      Usuários & Admin
+                    </div>
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-200 rounded">
+                      {systemUsers.length}
+                    </span>
+                  </button>
+                )}
+              </>
             )}
           </nav>
 
@@ -2073,8 +2271,219 @@ export default function App() {
           )}
 
           {/* =========================================================================
-              ABA: GERADOR DE UTMS & RASTREAMENTO PROFISSIONAL
+              ABA: CRIADOR DE ANÚNCIOS FÁCIL (PARA CLIENTES LEIGOS)
              ========================================================================= */}
+          {activeTab === 'easy_ad' && (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900 to-indigo-950/60 border border-emerald-500/30 p-6 rounded-3xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider rounded-lg flex items-center gap-1.5">
+                    <Rocket className="w-3.5 h-3.5" />
+                    Modo Descomplicado
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    Empresa: <b className="text-slate-200">{activeCompany.name}</b>
+                  </span>
+                </div>
+                <h2 className="text-2xl font-black text-slate-100 mb-1">
+                  Crie seu Anúncio em 3 Passos Rápidos
+                </h2>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                  Você não precisa entender de pixels, públicos técnicos ou gerenciadores de anúncios. 
+                  Sua agência já conectou todas as contas de Facebook, Instagram e WhatsApp. 
+                  Basta nos dizer o que você quer vender hoje!
+                </p>
+              </div>
+
+              <form onSubmit={handlePublishEasyAd} className="space-y-6">
+                {/* PASSO 1 */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-sm">
+                      1
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-100">O que você quer divulgar ou vender?</h3>
+                      <p className="text-xs text-slate-400">Escreva o produto, serviço ou oferta especial do seu negócio.</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <input
+                      type="text"
+                      required
+                      value={easyProduct}
+                      onChange={e => setEasyProduct(e.target.value)}
+                      placeholder="Ex: Pizza em dobro nas terças, Limpeza de dente sem dor, Consulta jurídica, etc."
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleGenerateEasyCopy}
+                      disabled={isGeneratingAi}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      {isGeneratingAi ? 'A IA está criando o texto ideal...' : '✨ Criar Texto do Anúncio com Inteligência Artificial'}
+                    </button>
+                    <span className="text-[11px] text-slate-400">Gera uma legenda persuasiva e personalizada.</span>
+                  </div>
+
+                  {easyGeneratedText && (
+                    <div className="mt-3 p-4 bg-slate-950 border border-emerald-500/30 rounded-2xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Texto Sugerido pela IA (Você pode editar se quiser)
+                        </span>
+                      </div>
+                      <textarea
+                        rows={3}
+                        value={easyGeneratedText}
+                        onChange={e => setEasyGeneratedText(e.target.value)}
+                        className="w-full bg-transparent text-xs text-slate-200 border-0 focus:outline-none resize-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* PASSO 2 */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-sm">
+                      2
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-100">Onde você quer receber os novos clientes?</h3>
+                      <p className="text-xs text-slate-400">Escolha o melhor canal de atendimento para essa campanha.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setEasyGoal('WHATSAPP')}
+                      className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        easyGoal === 'WHATSAPP'
+                          ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                          <MessageSquare className="w-5 h-5" />
+                          Direto no WhatsApp
+                        </div>
+                        <span className="px-2 py-0.5 text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 rounded">
+                          Mais Recomendado
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300">
+                        O cliente clica no anúncio e abre conversa instantânea no seu número <b>{activeCompany.whatsappContact}</b>.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEasyGoal('WEBSITE')}
+                      className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        easyGoal === 'WEBSITE'
+                          ? 'bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/20'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+                          <Target className="w-5 h-5" />
+                          No Meu Site / Loja Virtual
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-300">
+                        Leva o cliente direto para o catálogo, página de vendas ou formulário de cadastro.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* PASSO 3 */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-sm">
+                      3
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-100">Quanto você quer investir por dia?</h3>
+                      <p className="text-xs text-slate-400">Você tem controle total e pode pausar ou alterar a qualquer momento.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { val: '15', label: 'Econômico', reach: '~500 a 1.200 pessoas' },
+                      { val: '30', label: 'Mais Escolhido', reach: '~1.500 a 3.500 pessoas', recommended: true },
+                      { val: '50', label: 'Crescimento', reach: '~2.800 a 6.000 pessoas' },
+                      { val: '100', label: 'Aceleração', reach: '~6.000 a 14.000 pessoas' }
+                    ].map(option => (
+                      <button
+                        key={option.val}
+                        type="button"
+                        onClick={() => setEasyBudget(option.val)}
+                        className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative ${
+                          easyBudget === option.val
+                            ? 'bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20'
+                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        {option.recommended && (
+                          <span className="absolute -top-2.5 right-3 px-1.5 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-black uppercase rounded-full">
+                            Popular
+                          </span>
+                        )}
+                        <p className="text-xs text-slate-400 mb-0.5">{option.label}</p>
+                        <p className="text-lg font-black text-slate-100 mb-1">R$ {option.val}<span className="text-xs font-normal text-slate-400">/dia</span></p>
+                        <p className="text-[10px] text-emerald-400 font-semibold">{option.reach}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <span className="text-xs text-slate-400">Ou digite outro valor diário: R$</span>
+                    <input
+                      type="number"
+                      min={10}
+                      value={easyBudget}
+                      onChange={e => setEasyBudget(e.target.value)}
+                      className="w-24 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-100 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* PRÉ-VISUALIZAÇÃO & BOTÃO DE PUBLICAR */}
+                <div className="p-6 bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Resumo da Campanha</p>
+                    <p className="text-sm text-slate-200">
+                      Anúncio para <b>{easyProduct || 'seu produto'}</b> no valor de <b>R$ {easyBudget}/dia</b> com destino ao <b>{easyGoal === 'WHATSAPP' ? 'WhatsApp' : 'Site'}</b>.
+                    </p>
+                    <p className="text-[11px] text-emerald-400 mt-1">
+                      ✓ Contas do Facebook, Instagram e Google prontas e otimizadas pela agência.
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black rounded-2xl text-sm shadow-xl shadow-emerald-500/20 cursor-pointer transition-all flex items-center justify-center gap-2 shrink-0"
+                  >
+                    <Rocket className="w-5 h-5 text-slate-950" />
+                    🚀 Publicar Anúncio Agora
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
           {activeTab === 'utms' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -2858,19 +3267,30 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="mt-4">
+                    <div className="mt-4 flex gap-2">
                       <button
                         onClick={() => {
                           setSelectedCompanyId(comp.id);
                           setActiveTab('dashboard');
                         }}
-                        className={`w-full py-2 rounded-xl text-xs font-semibold transition-all ${
+                        className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
                           selectedCompanyId === comp.id
                             ? 'bg-indigo-600 text-white'
                             : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                         }`}
                       >
-                        {selectedCompanyId === comp.id ? '✓ Gerenciando Agora' : 'Selecionar Esta Empresa'}
+                        {selectedCompanyId === comp.id ? '✓ Gerenciando' : 'Selecionar'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedClientForAccess(comp);
+                          setIsAccessModalOpen(true);
+                        }}
+                        className="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                        title="Gerar e Enviar Acesso Simplificado no WhatsApp"
+                      >
+                        <Key className="w-3.5 h-3.5" />
+                        Acesso
                       </button>
                     </div>
                   </div>
@@ -3723,6 +4143,83 @@ export default function App() {
                 Cadastrar Usuário
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: ENVIAR ACESSO DO CLIENTE (PORTAL DESCOMPLICADO)
+         ========================================================================= */}
+      {isAccessModalOpen && selectedClientForAccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Key className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-100">Acesso Simplificado do Cliente</h3>
+                  <p className="text-[11px] text-slate-400">{selectedClientForAccess.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsAccessModalOpen(false)} className="text-slate-400 hover:text-slate-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Envie o link de acesso e as credenciais prontas direto no WhatsApp de <b>{selectedClientForAccess.ownerContact || selectedClientForAccess.name}</b>. 
+              Ao entrar, ele terá um painel limpo sem termos difíceis e com o criador de anúncios fácil em 3 passos.
+            </p>
+
+            <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-2 text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-slate-900">
+                <span className="text-slate-400">Link do Portal:</span>
+                <span className="font-mono text-indigo-400 font-bold">https://socialpulse.cristhiansancore.com.br/</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-900">
+                <span className="text-slate-400">Usuário Sugerido:</span>
+                <span className="font-mono text-emerald-400 font-bold">
+                  @{selectedClientForAccess.name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 15)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-400">Senha Padrão:</span>
+                <span className="font-mono text-slate-200 font-bold">123</span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-slate-400">WhatsApp Destino:</span>
+                <span className="font-mono text-slate-300 font-bold">{selectedClientForAccess.whatsappContact}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleSendClientAccessWhatsApp(selectedClientForAccess);
+                  setIsAccessModalOpen(false);
+                }}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-emerald-500/20 cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4 text-slate-950" />
+                Disparar Acesso no WhatsApp do Cliente
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const msg = `Link: https://socialpulse.cristhiansancore.com.br/\nUsuário: @${selectedClientForAccess.name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 15)}\nSenha: 123`;
+                  navigator.clipboard.writeText(msg);
+                  alert('Dados copiados para a área de transferência!');
+                }}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copiar Dados de Acesso
+              </button>
+            </div>
           </div>
         </div>
       )}
