@@ -829,7 +829,7 @@ export async function syncMetaCampaigns(companyId: string) {
 
   try {
     const actId = conn.accountId.startsWith('act_') ? conn.accountId : `act_${conn.accountId}`;
-    const campUrl = `https://graph.facebook.com/v19.0/${actId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget,created_time&limit=50&access_token=${token}`;
+    const campUrl = `https://graph.facebook.com/v19.0/${actId}/campaigns?effective_status=[%22ACTIVE%22,%22PAUSED%22,%22ARCHIVED%22]&fields=id,name,status,effective_status,objective,daily_budget,lifetime_budget,created_time&limit=50&access_token=${token}`;
     const campRes = await fetch(campUrl);
     const campData = (await campRes.json()) as any;
 
@@ -957,6 +957,7 @@ app.post('/api/campaigns', async (req: Request, res: Response) => {
           objective: metaObjective,
           status: 'PAUSED',
           special_ad_categories: [],
+          is_adset_budget_sharing_enabled: false,
           access_token: token
         })
       });
@@ -993,17 +994,203 @@ app.post('/api/campaigns', async (req: Request, res: Response) => {
   res.status(201).json({ success: true, campaign: newCampaign, createdOnMeta });
 });
 
-app.patch('/api/campaigns/:id/toggle', (req: Request, res: Response) => {
+// Alternar status da campanha (Pausar / Ativar) inclusive na Meta Graph API
+app.patch('/api/campaigns/:id/toggle', async (req: Request, res: Response) => {
   const { id } = req.params;
   const campaign = db.campaigns.find(c => c.id === id);
   if (!campaign) return res.status(404).json({ error: 'Campanha não encontrada' });
-  campaign.status = campaign.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-  res.json({ success: true, campaign });
+
+  const newStatus = campaign.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+  let updatedOnMeta = false;
+
+  // Se for campanha com ID numérico oficial da Meta
+  if (/^\d{10,}$/.test(id)) {
+    const conn = db.connections.find(c => c.companyId === campaign.companyId && c.platform === 'META');
+    const token = (conn as any)?.accessToken || (masterApiConfig as any).metaLongLivedToken;
+    if (token) {
+      try {
+        const updateUrl = `https://graph.facebook.com/v19.0/${id}?status=${newStatus}&access_token=${token}`;
+        const metaRes = await fetch(updateUrl, { method: 'POST' });
+        const metaData = (await metaRes.json()) as any;
+        if (metaData.success) updatedOnMeta = true;
+      } catch (err: any) {
+        console.warn('Erro ao atualizar status na Meta:', err.message);
+      }
+    }
+  }
+
+  campaign.status = newStatus;
+  campaign.autopilotStatus = newStatus === 'ACTIVE' ? 'Ativo e Monitorando' : 'Pausado na Meta';
+  res.json({ success: true, campaign, updatedOnMeta });
+});
+
+// Alterar Orçamento Diário da Campanha na Meta
+app.patch('/api/campaigns/:id/budget', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { dailyBudget } = req.body;
+  const campaign = db.campaigns.find(c => c.id === id);
+  if (!campaign) return res.status(404).json({ error: 'Campanha não encontrada' });
+
+  campaign.dailyBudget = Number(dailyBudget) || campaign.dailyBudget;
+  let updatedOnMeta = false;
+
+  if (/^\d{10,}$/.test(id)) {
+    const conn = db.connections.find(c => c.companyId === campaign.companyId && c.platform === 'META');
+    const token = (conn as any)?.accessToken || (masterApiConfig as any).metaLongLivedToken;
+    if (token) {
+      try {
+        const updateUrl = `https://graph.facebook.com/v19.0/${id}?daily_budget=${Math.round(campaign.dailyBudget * 100)}&access_token=${token}`;
+        const metaRes = await fetch(updateUrl, { method: 'POST' });
+        const metaData = (await metaRes.json()) as any;
+        if (metaData.success) updatedOnMeta = true;
+      } catch (e: any) {
+        console.warn('Erro ao atualizar orçamento na Meta:', e.message);
+      }
+    }
+  }
+
+  res.json({ success: true, campaign, updatedOnMeta });
+});
+
+// Consulta de Saldo, Gastos e Fatura da Conta Meta Ads
+app.get('/api/meta/account-billing/:companyId', async (req: Request, res: Response) => {
+  const { companyId } = req.params;
+  const conn = db.connections.find(c => c.companyId === companyId && c.platform === 'META');
+  if (!conn || !conn.accountId) {
+    return res.status(404).json({ success: false, error: 'Nenhuma conta Meta conectada para esta empresa' });
+  }
+
+  const token = (conn as any)?.accessToken || (masterApiConfig as any).metaLongLivedToken;
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Token de acesso da Meta não encontrado' });
+  }
+
+  try {
+    const actId = conn.accountId.startsWith('act_') ? conn.accountId : `act_${conn.accountId}`;
+    const url = `https://graph.facebook.com/v19.0/${actId}?fields=id,name,account_status,currency,spend_cap,amount_spent,balance,funding_source_details&access_token=${token}`;
+    const metaRes = await fetch(url);
+    const data = (await metaRes.json()) as any;
+
+    if (data.error) {
+      return res.status(400).json({ success: false, error: data.error.message });
+    }
+
+    const amountSpentNumber = (Number(data.amount_spent) || 0) / 100;
+    const balanceNumber = (Number(data.balance) || 0) / 100;
+    const spendCapNumber = (Number(data.spend_cap) || 0) / 100;
+
+    res.json({
+      success: true,
+      billing: {
+        accountId: data.id,
+        accountName: data.name,
+        currency: data.currency || 'BRL',
+        accountStatus: data.account_status === 1 ? 'ACTIVE' : 'DISABLED',
+        amountSpentTotal: amountSpentNumber,
+        balancePending: balanceNumber,
+        spendCapLimit: spendCapNumber > 0 ? spendCapNumber : null,
+        paymentMethodName: data.funding_source_details?.display_string || 'Cartão Cadastrado',
+        formattedSpent: `R$ ${amountSpentNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        formattedBalance: `R$ ${balanceNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // -------------------------------------------------------------
-// PILOTO AUTOMÁTICO (Regras)
+// PILOTO AUTOMÁTICO (Motor de Otimização & Controle de Eficiência)
 // -------------------------------------------------------------
+
+export async function runAutopilotEvaluation(companyId: string) {
+  const activeRules = db.automationRules.filter(r => r.companyId === companyId && r.isActive);
+  if (activeRules.length === 0) return { evaluated: 0, actionsTaken: [] };
+
+  const campaigns = db.campaigns.filter(c => c.companyId === companyId);
+  const actionsTaken: string[] = [];
+
+  const conn = db.connections.find(c => c.companyId === companyId && c.platform === 'META');
+  const token = (conn as any)?.accessToken || (masterApiConfig as any).metaLongLivedToken;
+
+  for (const campaign of campaigns) {
+    if (campaign.status !== 'ACTIVE') continue;
+
+    for (const rule of activeRules) {
+      // 1. STOP-LOSS: Pausar se gastar acima do limite sem conversão ou com CPA alto
+      if (rule.type === 'STOP_LOSS_SPEND' || rule.type === 'STOP_LOSS_CPA') {
+        const threshold = Number(rule.thresholdValue) || 50;
+        const shouldPause =
+          (rule.conditionField === 'spendToday' && campaign.spendToday >= threshold && campaign.conversions === 0) ||
+          (rule.conditionField === 'cpa' && campaign.cpa > threshold && campaign.conversions > 0);
+
+        if (shouldPause) {
+          campaign.status = 'PAUSED';
+          campaign.autopilotStatus = `🛡️ Pausado pelo Piloto (Gasto R$ ${campaign.spendToday.toFixed(2)})`;
+          rule.lastTriggered = `Pausou "${campaign.name}" (${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`;
+
+          if (/^\d{10,}$/.test(campaign.id) && token) {
+            try {
+              await fetch(`https://graph.facebook.com/v19.0/${campaign.id}?status=PAUSED&access_token=${token}`, { method: 'POST' });
+            } catch (e) {
+              console.warn('Erro ao pausar campanha na Meta via piloto:', e);
+            }
+          }
+
+          // Disparo de alerta no WhatsApp
+          const comp = db.companies.find(co => co.id === companyId);
+          if (comp && comp.whatsappContact) {
+            const cleanNumber = comp.whatsappContact.replace(/\D/g, '');
+            const msg = `🚨 *ALERTA NEXUSADS - PILOTO AUTOMÁTICO*\n\nA campanha *"${campaign.name}"* atingiu R$ ${campaign.spendToday.toFixed(2)} gastos e foi *PAUSADA AUTOMATICAMENTE* para proteger seu saldo e eficiência!\n\nRegra acionada: ${rule.name}`;
+            try {
+              await fetch(`${masterApiConfig.evolutionApiUrl}/message/sendText/${comp.evolutionInstance || 'meu'}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', apikey: masterApiConfig.evolutionApiKey },
+                body: JSON.stringify({ number: cleanNumber, text: msg })
+              });
+            } catch (e) {
+              console.warn('Falha ao enviar alerta WhatsApp:', e);
+            }
+          }
+
+          actionsTaken.push(`Campanha "${campaign.name}" pausada por Stop-Loss`);
+        }
+      }
+
+      // 2. ESCALA AUTOMÁTICA DE ROAS: Se ROAS > threshold, aumenta o orçamento diário
+      if (rule.type === 'AUTO_SCALE_ROAS' && campaign.roas >= Number(rule.thresholdValue)) {
+        const percentIncrease = Number(rule.actionValue) || 15;
+        const oldBudget = campaign.dailyBudget;
+        campaign.dailyBudget = Math.round(campaign.dailyBudget * (1 + percentIncrease / 100));
+        campaign.autopilotStatus = `🚀 Verba escalada (+${percentIncrease}%) - ROAS ${campaign.roas}x`;
+        rule.lastTriggered = `Escalou "${campaign.name}" para R$ ${campaign.dailyBudget} (${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`;
+
+        if (/^\d{10,}$/.test(campaign.id) && token) {
+          try {
+            await fetch(`https://graph.facebook.com/v19.0/${campaign.id}?daily_budget=${campaign.dailyBudget * 100}&access_token=${token}`, { method: 'POST' });
+          } catch (e) {
+            console.warn('Erro ao escalar verba na Meta via piloto:', e);
+          }
+        }
+
+        actionsTaken.push(`Campanha "${campaign.name}" escalada de R$ ${oldBudget} para R$ ${campaign.dailyBudget}`);
+      }
+    }
+  }
+
+  return { evaluated: campaigns.length, actionsTaken };
+}
+
+app.post('/api/automations/run/:companyId', async (req: Request, res: Response) => {
+  const { companyId } = req.params;
+  const result = await runAutopilotEvaluation(companyId);
+  res.json({ success: true, message: 'Piloto automático avaliou as campanhas com sucesso.', ...result });
+});
+
+// Disparo periódico em segundo plano a cada 2 minutos
+setInterval(() => {
+  runAutopilotEvaluation('comp-1').catch(e => console.warn('Erro no ciclo do piloto automático:', e.message));
+}, 120000);
 
 app.get('/api/automations/:companyId', (req: Request, res: Response) => {
   const { companyId } = req.params;

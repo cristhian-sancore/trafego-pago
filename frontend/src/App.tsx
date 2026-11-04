@@ -39,7 +39,8 @@ import {
   ShieldCheck,
   Globe,
   HelpCircle,
-  ExternalLink
+  ExternalLink,
+  CreditCard
 } from 'lucide-react';
 import {
   Platform,
@@ -478,6 +479,57 @@ export default function App() {
   const [isInstantAuthModalOpen, setIsInstantAuthModalOpen] = useState(false);
   const [instantAuthPlatform, setInstantAuthPlatform] = useState<Platform>('META');
   const [isSyncingMeta, setIsSyncingMeta] = useState(false);
+  const [metaBilling, setMetaBilling] = useState<{
+    accountId: string;
+    accountName: string;
+    currency: string;
+    balance: number;
+    amountSpent: number;
+    spendCap: number;
+    accountStatus: number;
+    statusLabel: string;
+    fundingSources: string[];
+  } | null>(null);
+  const [isLoadingBilling, setIsLoadingBilling] = useState(false);
+  const [autopilotRunning, setAutopilotRunning] = useState(false);
+
+  const fetchMetaBilling = async () => {
+    try {
+      setIsLoadingBilling(true);
+      const res = await fetch(`/api/meta/account-billing/${selectedCompanyId}`);
+      const data = await res.json();
+      if (data.success && data.billing) {
+        setMetaBilling(data.billing);
+      }
+    } catch (e: any) {
+      console.warn('Erro ao carregar faturamento Meta:', e);
+    } finally {
+      setIsLoadingBilling(false);
+    }
+  };
+
+  const handleRunAutopilot = async () => {
+    try {
+      setAutopilotRunning(true);
+      const res = await fetch(`/api/automations/run/${selectedCompanyId}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        const actions = data.actionsTaken && data.actionsTaken.length > 0
+          ? data.actionsTaken.join('\n')
+          : 'Nenhuma anomalia detectada. Todas as campanhas estão operando de acordo com as metas de eficiência!';
+        alert(`🤖 Piloto Automático Executado com Sucesso!\nCampanhas avaliadas: ${data.evaluated}\n\n${actions}`);
+        const campRes = await fetch(`/api/campaigns/${selectedCompanyId}`);
+        const campData = await campRes.json();
+        if (campData.success && campData.campaigns) {
+          setCampaigns(campData.campaigns);
+        }
+      }
+    } catch (e: any) {
+      alert(`Erro ao rodar piloto: ${e.message}`);
+    } finally {
+      setAutopilotRunning(false);
+    }
+  };
 
   const handleSyncMetrics = async (connAccountName?: string) => {
     setIsSyncingMeta(true);
@@ -487,6 +539,7 @@ export default function App() {
       if (data.success && data.campaigns) {
         setCampaigns(data.campaigns);
         localStorage.setItem('socialpulse_campaigns', JSON.stringify(data.campaigns));
+        fetchMetaBilling();
         alert(`🔄 ${data.message || 'Métricas e campanhas sincronizadas com sucesso!'}`);
       } else {
         alert('Nenhuma campanha encontrada para sincronizar.');
@@ -508,6 +561,9 @@ export default function App() {
         }
       })
       .catch(err => console.log('Erro ao carregar api-config:', err));
+
+    // Carregar saldo e faturamento da Meta Ads
+    fetchMetaBilling();
 
     // Carregar campanhas sincronizadas do backend
     fetch(`/api/campaigns/${selectedCompanyId}`)
@@ -973,7 +1029,27 @@ export default function App() {
     setNewCampTarget('');
   };
 
-  const handleToggleCampaign = (campId: string) => {
+  const handleToggleCampaign = async (campId: string) => {
+    try {
+      const res = await fetch(`/api/campaigns/${campId}/toggle`, { method: 'PATCH' });
+      if (res.ok) {
+        const data = await res.json();
+        setCampaigns(prev =>
+          prev.map(c =>
+            c.id === campId
+              ? {
+                  ...c,
+                  status: data.campaign.status,
+                  autopilotStatus: data.campaign.autopilotStatus || (data.campaign.status === 'ACTIVE' ? 'Ativo e Monitorando' : 'Pausado na Meta')
+                }
+              : c
+          )
+        );
+        return;
+      }
+    } catch (e) {
+      console.warn('Falha na API toggle:', e);
+    }
     setCampaigns(prev =>
       prev.map(c => (c.id === campId ? { ...c, status: c.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' } : c))
     );
@@ -2348,6 +2424,55 @@ export default function App() {
                 </div>
               </div>
 
+              {/* BANNER DE SALDO E FATURAMENTO DA CONTA META ADS */}
+              {metaBilling && (
+                <div className="p-4 bg-gradient-to-r from-blue-950/40 via-slate-900 to-slate-900 border border-blue-800/40 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+                      <CreditCard className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-100">
+                          Conta Meta Ads: {metaBilling.accountName} ({metaBilling.accountId})
+                        </span>
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full">
+                          {metaBilling.statusLabel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Forma de Pagamento: <b>{metaBilling.fundingSources?.[0] || 'Cartão Cadastrado'}</b> • Moeda: {metaBilling.currency}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-slate-800 pt-3 md:pt-0">
+                    <div>
+                      <p className="text-[11px] text-slate-400">Total Faturado Meta</p>
+                      <p className="text-sm font-bold text-slate-100">
+                        R$ {Number(metaBilling.amountSpent || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] text-slate-400">Saldo Atual a Pagar</p>
+                      <p className="text-sm font-bold text-emerald-400">
+                        R$ {Number(metaBilling.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleSyncMetrics()}
+                      disabled={isSyncingMeta}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-semibold cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncingMeta ? 'animate-spin' : ''}`} />
+                      Sincronizar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* CARDS DE MÉTRICAS */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl">
@@ -2846,13 +2971,24 @@ export default function App() {
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setIsRuleModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  Nova Regra Inteligente
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRunAutopilot}
+                    disabled={autopilotRunning}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/30 cursor-pointer disabled:opacity-50"
+                  >
+                    <Zap className={`w-4 h-4 ${autopilotRunning ? 'animate-spin' : ''}`} />
+                    {autopilotRunning ? 'Avaliando Métricas...' : 'Executar Piloto Agora'}
+                  </button>
+
+                  <button
+                    onClick={() => setIsRuleModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Nova Regra Inteligente
+                  </button>
+                </div>
               </div>
 
               {/* CARD DE PROGRAMAÇÃO POR HORÁRIOS (DAYPARTING) */}
