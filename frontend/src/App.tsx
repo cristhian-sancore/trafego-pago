@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
-  TrendingDown,
   DollarSign,
   Users,
   Target,
   Zap,
   MessageSquare,
-  ShieldAlert,
   Sliders,
   CheckCircle2,
   AlertTriangle,
@@ -19,29 +17,23 @@ import {
   Send,
   Bot,
   Building2,
-  ExternalLink,
-  ChevronDown,
-  Sparkles,
-  Award,
-  Layers,
   Lock,
   Smartphone,
-  PhoneCall,
-  KeyRound,
   UserCheck,
-  Search,
-  Filter,
-  Edit,
   Trash2,
-  UserX,
   X,
-  QrCode,
-  Radio,
   Share2,
-  Check,
   Flame,
+  Link2,
+  Copy,
+  Check,
+  FileText,
+  Printer,
+  Calendar,
   Clock,
-  Briefcase
+  Sparkles,
+  ShoppingBag,
+  Tag
 } from 'lucide-react';
 import {
   Platform,
@@ -51,10 +43,11 @@ import {
   AutomationRule,
   Conversation,
   Message,
-  Agency,
-  SuperAdminData,
   EvolutionInstance,
-  NetworkConnection
+  NetworkConnection,
+  UtmLink,
+  LeadSale,
+  DaypartingConfig
 } from './types';
 
 // =========================================================================
@@ -319,19 +312,6 @@ const INITIAL_RULES: AutomationRule[] = [
     actionValue: null,
     isActive: true,
     lastTriggered: 'Hoje às 09:20'
-  },
-  {
-    id: 'rule-4',
-    companyId: 'comp-3',
-    name: '⚠️ Alerta de Frequência: Se frequência > 3.5 notificar gestor',
-    type: 'CREATIVE_FATIGUE',
-    conditionField: 'frequency',
-    operator: 'GREATER_THAN',
-    thresholdValue: 3.5,
-    action: 'SEND_NOTIFICATION',
-    actionValue: null,
-    isActive: true,
-    lastTriggered: 'Ontem'
   }
 ];
 
@@ -346,7 +326,8 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
     unreadCount: 1,
     lastMessage: 'Queria saber se tem o vestido vermelho no tamanho M?',
     lastMessageTime: '12:14',
-    aiStatus: 'IA Respondendo'
+    aiStatus: 'IA Respondendo',
+    totalSalesValue: 0
   },
   {
     id: 'conv-2',
@@ -358,7 +339,8 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
     unreadCount: 0,
     lastMessage: 'Amei! Acabei de finalizar o pedido com o cupom que vc mandou 🥰',
     lastMessageTime: '11:45',
-    aiStatus: 'Venda Concluída'
+    aiStatus: 'Venda Concluída (R$ 289,00)',
+    totalSalesValue: 289.0
   },
   {
     id: 'conv-3',
@@ -370,7 +352,8 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
     unreadCount: 1,
     lastMessage: 'Gostaria de agendar uma avaliação para implante na sexta-feira.',
     lastMessageTime: '13:05',
-    aiStatus: 'Agendamento em Andamento'
+    aiStatus: 'Agendamento em Andamento',
+    totalSalesValue: 0
   },
   {
     id: 'conv-4',
@@ -382,7 +365,8 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
     unreadCount: 0,
     lastMessage: 'Pode me enviar o book completo da casa de 5 suítes no Residencial 1?',
     lastMessageTime: '10:30',
-    aiStatus: 'Qualificado (Corretor Notificado)'
+    aiStatus: 'Qualificado (Corretor Notificado)',
+    totalSalesValue: 0
   }
 ];
 
@@ -395,7 +379,8 @@ const INITIAL_MESSAGES: Record<string, Message[]> = {
   'conv-2': [
     { id: 'm-21', senderType: 'CUSTOMER', text: 'Tem cupom de primeira compra?', time: '11:40' },
     { id: 'm-22', senderType: 'AI_BOT', text: 'Com certeza! Use o cupom BEMVINDA10 para ganhar 10% de desconto adicional!', time: '11:41' },
-    { id: 'm-23', senderType: 'CUSTOMER', text: 'Amei! Acabei de finalizar o pedido com o cupom que vc mandou 🥰', time: '11:45' }
+    { id: 'm-23', senderType: 'CUSTOMER', text: 'Amei! Acabei de finalizar o pedido com o cupom que vc mandou 🥰', time: '11:45' },
+    { id: 'm-24', senderType: 'SYSTEM_SALE', text: '🎉 VENDA REGISTRADA: R$ 289,00 via PIX (Vestido Verão Rosa Floral M)', time: '11:46' }
   ],
   'conv-3': [
     { id: 'm-31', senderType: 'CUSTOMER', text: 'Olá! Vi o anúncio sobre implantes dentários.', time: '13:00' },
@@ -404,7 +389,7 @@ const INITIAL_MESSAGES: Record<string, Message[]> = {
   ],
   'conv-4': [
     { id: 'm-41', senderType: 'CUSTOMER', text: 'Boa tarde, tenho interesse na casa de Alphaville.', time: '10:28' },
-    { id: 'm-42', senderType: 'AI_BOT', text: 'Excelente escolha! Excelente imóvel com acabamento de alto padrão. Gostaria de receber a planta ou prefere falar direto com nosso consultor especialista?', time: '10:29' },
+    { id: 'm-42', senderType: 'AI_BOT', text: 'Excelente escolha! Imóvel com acabamento de alto padrão. Gostaria de receber a planta?', time: '10:29' },
     { id: 'm-43', senderType: 'CUSTOMER', text: 'Pode me enviar o book completo da casa de 5 suítes no Residencial 1?', time: '10:30' }
   ]
 };
@@ -439,26 +424,51 @@ const INITIAL_CONNECTIONS: NetworkConnection[] = [
     accountId: 'adv_8721948192',
     pixelOrTagId: 'TT-C1098231',
     updatedAt: 'Hoje'
+  }
+];
+
+const INITIAL_UTMS: UtmLink[] = [
+  {
+    id: 'utm-1',
+    companyId: 'comp-1',
+    title: 'Campanha Vestidos Verão - Instagram Reels',
+    destinationUrl: 'https://modaexpress.com.br/verao',
+    finalUrl: 'https://modaexpress.com.br/verao?utm_source=meta&utm_medium=instagram_reels&utm_campaign=escala_verao&utm_content=video_provador_1',
+    source: 'meta',
+    medium: 'instagram_reels',
+    campaign: 'escala_verao',
+    content: 'video_provador_1',
+    clicks: 420,
+    conversions: 18,
+    createdAt: 'Hoje'
   },
   {
-    id: 'conn-4',
-    companyId: 'comp-2',
-    platform: 'META',
-    connected: true,
-    accountName: 'Dr Sorriso Clínicas Meta',
-    accountId: 'act_1029384756',
-    pixelOrTagId: 'pix_10293847',
-    updatedAt: 'Hoje'
-  },
+    id: 'utm-2',
+    companyId: 'comp-1',
+    title: 'Anúncio Google Pesquisa - Vestido de Festa',
+    destinationUrl: 'https://modaexpress.com.br/festa',
+    finalUrl: 'https://modaexpress.com.br/festa?utm_source=google&utm_medium=cpc&utm_campaign=fundo_de_funil&utm_content=anuncio_texto_1',
+    source: 'google',
+    medium: 'cpc',
+    campaign: 'fundo_de_funil',
+    content: 'anuncio_texto_1',
+    clicks: 210,
+    conversions: 9,
+    createdAt: 'Ontem'
+  }
+];
+
+const INITIAL_SALES: LeadSale[] = [
   {
-    id: 'conn-5',
-    companyId: 'comp-3',
-    platform: 'GOOGLE',
-    connected: true,
-    accountName: 'Google Ads - Prime Imóveis SP',
-    accountId: '554-123-9988',
-    pixelOrTagId: 'AW-77712399',
-    updatedAt: 'Hoje'
+    id: 'sale-1',
+    companyId: 'comp-1',
+    conversationId: 'conv-2',
+    customerName: '@gabriela.costa',
+    campaignName: '[ESCALA] Vestidos Verão',
+    amount: 289.0,
+    product: 'Vestido Verão Rosa Floral M',
+    paymentMethod: 'PIX',
+    createdAt: 'Hoje às 11:46'
   }
 ];
 
@@ -478,7 +488,7 @@ export default function App() {
     localStorage.setItem('socialpulse_system_users', JSON.stringify(systemUsers));
   }, [systemUsers]);
 
-  // Estados de Telas de Autenticação
+  // Telas de Autenticação
   const [authView, setAuthView] = useState<'login' | 'register' | 'verify_phone' | 'forgot_password' | 'reset_password_verify'>('login');
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -500,10 +510,10 @@ export default function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [recoveryUserFound, setRecoveryUserFound] = useState<any>(null);
 
-  // Navegação
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'clients' | 'integrations' | 'admin'>('dashboard');
+  // Navegação: 'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'utms' | 'clients' | 'integrations' | 'admin'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'utms' | 'clients' | 'integrations' | 'admin'>('dashboard');
 
-  // Estados de Dados Principais (com LocalStorage para persistência total)
+  // Estados com LocalStorage
   const [clientCompanies, setClientCompanies] = useState<ClientCompanyDetail[]>(() => {
     const saved = localStorage.getItem('socialpulse_companies');
     return saved ? JSON.parse(saved) : INITIAL_COMPANIES;
@@ -539,43 +549,49 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_CONNECTIONS;
   });
 
-  // Salvar alterações nos estados principais
-  useEffect(() => {
-    localStorage.setItem('socialpulse_companies', JSON.stringify(clientCompanies));
-  }, [clientCompanies]);
+  const [utmLinks, setUtmLinks] = useState<UtmLink[]>(() => {
+    const saved = localStorage.getItem('socialpulse_utms');
+    return saved ? JSON.parse(saved) : INITIAL_UTMS;
+  });
 
-  useEffect(() => {
-    localStorage.setItem('socialpulse_selected_company', selectedCompanyId);
-  }, [selectedCompanyId]);
+  const [leadSales, setLeadSales] = useState<LeadSale[]>(() => {
+    const saved = localStorage.getItem('socialpulse_sales');
+    return saved ? JSON.parse(saved) : INITIAL_SALES;
+  });
 
-  useEffect(() => {
-    localStorage.setItem('socialpulse_campaigns', JSON.stringify(campaigns));
-  }, [campaigns]);
+  const [dayparting, setDayparting] = useState<DaypartingConfig>(() => {
+    const saved = localStorage.getItem('socialpulse_dayparting');
+    return saved
+      ? JSON.parse(saved)
+      : {
+          companyId: 'comp-1',
+          enabled: true,
+          startHour: '08:00',
+          endHour: '20:00',
+          activeDays: ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'],
+          autoPauseWhatsApp: true
+        };
+  });
 
-  useEffect(() => {
-    localStorage.setItem('socialpulse_rules', JSON.stringify(automationRules));
-  }, [automationRules]);
+  // Salvar no localStorage
+  useEffect(() => { localStorage.setItem('socialpulse_companies', JSON.stringify(clientCompanies)); }, [clientCompanies]);
+  useEffect(() => { localStorage.setItem('socialpulse_selected_company', selectedCompanyId); }, [selectedCompanyId]);
+  useEffect(() => { localStorage.setItem('socialpulse_campaigns', JSON.stringify(campaigns)); }, [campaigns]);
+  useEffect(() => { localStorage.setItem('socialpulse_rules', JSON.stringify(automationRules)); }, [automationRules]);
+  useEffect(() => { localStorage.setItem('socialpulse_conversations', JSON.stringify(conversations)); }, [conversations]);
+  useEffect(() => { localStorage.setItem('socialpulse_messages', JSON.stringify(messages)); }, [messages]);
+  useEffect(() => { localStorage.setItem('socialpulse_connections', JSON.stringify(connections)); }, [connections]);
+  useEffect(() => { localStorage.setItem('socialpulse_utms', JSON.stringify(utmLinks)); }, [utmLinks]);
+  useEffect(() => { localStorage.setItem('socialpulse_sales', JSON.stringify(leadSales)); }, [leadSales]);
+  useEffect(() => { localStorage.setItem('socialpulse_dayparting', JSON.stringify(dayparting)); }, [dayparting]);
 
-  useEffect(() => {
-    localStorage.setItem('socialpulse_conversations', JSON.stringify(conversations));
-  }, [conversations]);
-
-  useEffect(() => {
-    localStorage.setItem('socialpulse_messages', JSON.stringify(messages));
-  }, [messages]);
-
-  useEffect(() => {
-    localStorage.setItem('socialpulse_connections', JSON.stringify(connections));
-  }, [connections]);
-
-  // Instâncias reais da Evolution API
+  // Evolution API
   const [evolutionInstances, setEvolutionInstances] = useState<EvolutionInstance[]>([]);
   const [loadingEvolution, setLoadingEvolution] = useState(false);
   const [testWhatsAppNumber, setTestWhatsAppNumber] = useState('');
   const [testWhatsAppMessage, setTestWhatsAppMessage] = useState('Olá! Mensagem de teste enviada diretamente pelo NexusAds!');
   const [evolutionFeedback, setEvolutionFeedback] = useState('');
 
-  // Buscar instâncias reais da Evolution API no backend
   const fetchEvolution = async () => {
     try {
       setLoadingEvolution(true);
@@ -602,12 +618,13 @@ export default function App() {
   const [newMessageText, setNewMessageText] = useState('');
   const [sendRealWpp, setSendRealWpp] = useState(false);
 
-  // Modais de Criação
+  // Modais de Criação & Relatório
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
   const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
-  const [isEvolutionModalOpen, setIsEvolutionModalOpen] = useState(false);
+  const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Form: Novo Cliente / Empresa
   const [newCompanyName, setNewCompanyName] = useState('');
@@ -618,7 +635,7 @@ export default function App() {
   const [newCompanyBudget, setNewCompanyBudget] = useState('5000');
   const [newCompanyFee, setNewCompanyFee] = useState('1500');
   const [newCompanyInstance, setNewCompanyInstance] = useState('meu');
-  const [newCompanyAiPrompt, setNewCompanyAiPrompt] = useState('Você é o assistente virtual da empresa. Responda educadamente e ajude os clientes com informações e orçamentos.');
+  const [newCompanyAiPrompt, setNewCompanyAiPrompt] = useState('Você é o assistente virtual da empresa. Responda educadamente e ofereça suporte aos clientes.');
 
   // Form: Nova Campanha
   const [newCampPlatform, setNewCampPlatform] = useState<Platform>('META');
@@ -643,9 +660,19 @@ export default function App() {
   const [connAccountId, setConnAccountId] = useState('');
   const [connPixelId, setConnPixelId] = useState('');
 
-  // Form: Nova Instância Evolution
-  const [newInstanceName, setNewInstanceName] = useState('');
-  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+  // Form: Construtor de UTM
+  const [utmTitle, setUtmTitle] = useState('');
+  const [utmUrl, setUtmUrl] = useState('https://minhaloja.com.br/produto');
+  const [utmSource, setUtmSource] = useState('meta');
+  const [utmMedium, setUtmMedium] = useState('instagram_reels');
+  const [utmCampaignName, setUtmCampaignName] = useState('promocao_verao');
+  const [utmContentName, setUtmContentName] = useState('video_provador_1');
+  const [copiedUtm, setCopiedUtm] = useState(false);
+
+  // Form: Registro de Venda no WhatsApp
+  const [saleAmount, setSaleAmount] = useState('197.00');
+  const [saleProduct, setSaleProduct] = useState('');
+  const [saleMethod, setSaleMethod] = useState('PIX');
 
   // Gestão de Usuários (Super Admin)
   const [editingUser, setEditingUser] = useState<SystemUserRecord | null>(null);
@@ -665,6 +692,8 @@ export default function App() {
   const filteredRules = automationRules.filter(r => r.companyId === selectedCompanyId);
   const filteredConversations = conversations.filter(c => c.companyId === selectedCompanyId);
   const filteredConnections = connections.filter(c => c.companyId === selectedCompanyId);
+  const filteredUtms = utmLinks.filter(u => u.companyId === selectedCompanyId);
+  const filteredSales = leadSales.filter(s => s.companyId === selectedCompanyId);
 
   // Garantir conversa ativa válida
   useEffect(() => {
@@ -682,14 +711,20 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Métricas calculadas em tempo real para a empresa ativa
+  // Métricas calculadas para a empresa ativa (incluindo vendas do WhatsApp!)
   const totalSpend = filteredCampaigns.reduce((acc, c) => acc + c.spendToday, 0);
-  const totalConversions = filteredCampaigns.reduce((acc, c) => acc + c.conversions, 0);
+  const totalCampaignRevenue = filteredCampaigns.reduce((acc, c) => acc + (c.spendToday * c.roas), 0);
+  const totalWhatsAppSalesRevenue = filteredSales.reduce((acc, s) => acc + s.amount, 0);
+  const totalRevenue = totalCampaignRevenue + totalWhatsAppSalesRevenue;
+  const overallRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+  const totalConversions = filteredCampaigns.reduce((acc, c) => acc + c.conversions, 0) + filteredSales.length;
   const totalClicks = filteredCampaigns.reduce((acc, c) => acc + c.clicks, 0);
   const totalImpressions = filteredCampaigns.reduce((acc, c) => acc + c.impressions, 0);
   const avgCpa = totalConversions > 0 ? totalSpend / totalConversions : 0;
-  const totalRevenue = filteredCampaigns.reduce((acc, c) => acc + (c.spendToday * c.roas), 0);
-  const overallRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+
+  // Montagem da URL gerada pelo construtor de UTM
+  const cleanBaseUrl = utmUrl.trim().replace(/\?.*$/, '');
+  const generatedFinalUtmUrl = `${cleanBaseUrl}?utm_source=${encodeURIComponent(utmSource)}&utm_medium=${encodeURIComponent(utmMedium)}&utm_campaign=${encodeURIComponent(utmCampaignName)}&utm_content=${encodeURIComponent(utmContentName)}`;
 
   // =========================================================================
   // HANDLERS DE AUTENTICAÇÃO
@@ -852,10 +887,9 @@ export default function App() {
   };
 
   // =========================================================================
-  // HANDLERS DE AÇÕES OPERACIONAIS (EMPRESAS, CAMPANHAS, REGRAS, REDES)
+  // HANDLERS: NOVO CLIENTE, CAMPANHA, REGRA, CONEXÕES
   // =========================================================================
 
-  // 1. Cadastrar Novo Cliente / Empresa
   const handleCreateCompany = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompanyName) return;
@@ -880,7 +914,6 @@ export default function App() {
     setSelectedCompanyId(newComp.id);
     setIsCompanyModalOpen(false);
 
-    // Limpar formulário
     setNewCompanyName('');
     setNewCompanyNiche('');
     setNewCompanyDocument('');
@@ -888,7 +921,6 @@ export default function App() {
     setNewCompanyWpp('');
   };
 
-  // 2. Criar Nova Campanha / Anúncio
   const handleCreateCampaign = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCampName) return;
@@ -914,8 +946,6 @@ export default function App() {
 
     setCampaigns(prev => [newCamp, ...prev]);
     setIsCampaignModalOpen(false);
-
-    // Limpar form
     setNewCampName('');
     setNewCampCopy('');
     setNewCampTarget('');
@@ -927,7 +957,6 @@ export default function App() {
     );
   };
 
-  // 3. Criar Nova Regra de Piloto Automático
   const handleCreateRule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRuleName) return;
@@ -957,7 +986,6 @@ export default function App() {
     );
   };
 
-  // 4. Conectar / Adicionar Rede Social
   const handleSaveConnection = (e: React.FormEvent) => {
     e.preventDefault();
     const existing = connections.find(c => c.companyId === selectedCompanyId && c.platform === connPlatform);
@@ -1003,7 +1031,7 @@ export default function App() {
     );
   };
 
-  // 5. Evolution API: Teste de Envio Real de Mensagem
+  // Evolution API
   const handleTestEvolutionMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!testWhatsAppNumber) return;
@@ -1022,7 +1050,7 @@ export default function App() {
       });
       const data = await res.json();
       if (data.success) {
-        setEvolutionFeedback(`✅ Mensagem enviada com sucesso para ${testWhatsAppNumber} através da instância '${inst}'!`);
+        setEvolutionFeedback(`✅ Mensagem enviada para ${testWhatsAppNumber} via '${inst}'!`);
       } else {
         setEvolutionFeedback(`❌ Erro no envio: ${data.error || 'Verifique a instância'}`);
       }
@@ -1031,7 +1059,6 @@ export default function App() {
     }
   };
 
-  // 6. Atualizar Prompt da IA da Empresa
   const handleSaveAiPrompt = (newPrompt: string) => {
     setClientCompanies(prev =>
       prev.map(c => (c.id === selectedCompanyId ? { ...c, aiPrompt: newPrompt } : c))
@@ -1039,7 +1066,6 @@ export default function App() {
     alert('Prompt e comportamento da IA atualizados com sucesso para esta empresa!');
   };
 
-  // 7. Envio de Mensagem na Caixa de Entrada
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessageText.trim() || !activeConversationId) return;
@@ -1067,7 +1093,6 @@ export default function App() {
 
     setNewMessageText('');
 
-    // Se estiver marcado para enviar no WhatsApp Real via Evolution API
     const activeConv = conversations.find(c => c.id === activeConversationId);
     if (sendRealWpp && activeConv?.contactPhone && activeConv.channel === 'WHATSAPP') {
       try {
@@ -1087,9 +1112,124 @@ export default function App() {
   };
 
   // =========================================================================
-  // GESTÃO DE USUÁRIOS PELO SUPER ADMIN
+  // HANDLERS: AS 4 NOVAS FUNCIONALIDADES PROFISSIONAIS
   // =========================================================================
 
+  // 1. Salvar Novo Link com UTM
+  const handleSaveUtmLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newUtm: UtmLink = {
+      id: `utm-${Date.now()}`,
+      companyId: selectedCompanyId,
+      title: utmTitle || `Link ${utmSource} - ${utmMedium}`,
+      destinationUrl: utmUrl,
+      finalUrl: generatedFinalUtmUrl,
+      source: utmSource,
+      medium: utmMedium,
+      campaign: utmCampaignName,
+      content: utmContentName,
+      clicks: 0,
+      conversions: 0,
+      createdAt: 'Hoje'
+    };
+
+    setUtmLinks(prev => [newUtm, ...prev]);
+    setUtmTitle('');
+    alert('Link rastreado com parâmetros UTM gerado e salvo com sucesso!');
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedUtm(true);
+    setTimeout(() => setCopiedUtm(false), 2000);
+  };
+
+  // 2. Registrar Venda no WhatsApp
+  const handleRegisterSale = (e: React.FormEvent) => {
+    e.preventDefault();
+    const activeConv = conversations.find(c => c.id === activeConversationId);
+    if (!activeConv) return;
+
+    const parsedAmount = Number(saleAmount) || 0;
+    const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const newSale: LeadSale = {
+      id: `sale-${Date.now()}`,
+      companyId: selectedCompanyId,
+      conversationId: activeConv.id,
+      customerName: activeConv.contactName,
+      campaignName: activeConv.originAd || 'Tráfego Direto',
+      amount: parsedAmount,
+      product: saleProduct || 'Produto / Serviço Geral',
+      paymentMethod: saleMethod,
+      createdAt: `Hoje às ${timeStr}`
+    };
+
+    setLeadSales(prev => [newSale, ...prev]);
+
+    // Inserir mensagem de sistema no chat
+    const systemSaleMsg: Message = {
+      id: `m-sale-${Date.now()}`,
+      senderType: 'SYSTEM_SALE',
+      text: `🎉 VENDA CONFIRMADA: R$ ${parsedAmount.toFixed(2)} via ${saleMethod} (${saleProduct || 'Produto'})`,
+      time: timeStr
+    };
+
+    setMessages(prev => ({
+      ...prev,
+      [activeConv.id]: [...(prev[activeConv.id] || []), systemSaleMsg]
+    }));
+
+    // Atualizar status da conversa
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === activeConv.id
+          ? {
+              ...c,
+              aiStatus: `Venda Fechada (R$ ${parsedAmount.toFixed(2)})`,
+              totalSalesValue: (c.totalSalesValue || 0) + parsedAmount
+            }
+          : c
+      )
+    );
+
+    setIsSaleModalOpen(false);
+    setSaleProduct('');
+  };
+
+  // 3. Disparar Resumo do Relatório no WhatsApp do Cliente
+  const handleSendReportWhatsApp = async () => {
+    if (!activeCompany.whatsappContact) {
+      alert('Esta empresa não tem número de WhatsApp cadastrado.');
+      return;
+    }
+
+    const textReport = `📊 *RELATÓRIO DE PERFORMANCE - ${activeCompany.name.toUpperCase()}*\n\n` +
+      `📅 Período: Mês Atual\n` +
+      `💰 Total Investido: R$ ${totalSpend.toFixed(2)}\n` +
+      `📈 Faturamento Gerado: R$ ${totalRevenue.toFixed(2)}\n` +
+      `🔥 Retorno (ROAS): ${overallRoas.toFixed(2)}x\n` +
+      `🎯 Conversões / Vendas: ${totalConversions}\n` +
+      `💬 Mensagens / Leads: ${filteredConversations.length}\n\n` +
+      `Seu tráfego pago está sob gestão otimizada pela equipe! 🚀`;
+
+    try {
+      await fetch('/api/evolution/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instance: activeCompany.evolutionInstance || 'meu',
+          number: activeCompany.whatsappContact,
+          text: textReport
+        })
+      });
+      alert(`Relatório resumido disparado no WhatsApp do cliente (${activeCompany.whatsappContact}) com sucesso!`);
+    } catch (e: any) {
+      alert(`Falha ao disparar no WhatsApp: ${e.message}`);
+    }
+  };
+
+  // Super Admin Handlers
   const handleOpenEditUser = (user: SystemUserRecord) => {
     setEditingUser({ ...user });
     setIsEditUserModalOpen(true);
@@ -1163,7 +1303,7 @@ export default function App() {
   };
 
   // =========================================================================
-  // RENDERIZAÇÃO: TELAS DE LOGIN & RECUPERAÇÃO DE SENHA
+  // TELAS DE LOGIN & RECUPERAÇÃO
   // =========================================================================
 
   if (!currentUser) {
@@ -1196,7 +1336,6 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEW: LOGIN */}
           {authView === 'login' && (
             <div>
               <h2 className="text-lg font-bold text-slate-100 mb-1">Acesse sua Conta</h2>
@@ -1270,7 +1409,6 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Contas de Demonstração Rápidas */}
               <div className="mt-6 pt-4 border-t border-slate-800/80">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center mb-2.5">
                   Acessos de Teste (1 Clique)
@@ -1302,7 +1440,6 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEW: CADASTRO */}
           {authView === 'register' && (
             <div>
               <h2 className="text-lg font-bold text-slate-100 mb-1">Criar Nova Conta</h2>
@@ -1389,7 +1526,6 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEW: VERIFICAR CELULAR CADASTRO */}
           {authView === 'verify_phone' && (
             <div>
               <h2 className="text-lg font-bold text-slate-100 mb-1">Confirme seu Celular</h2>
@@ -1425,19 +1561,9 @@ export default function App() {
                   Validar e Ativar Minha Conta
                 </button>
               </form>
-
-              <div className="mt-4 text-center">
-                <button
-                  onClick={() => setAuthView('register')}
-                  className="text-xs text-slate-400 hover:text-slate-200"
-                >
-                  ← Alterar número de celular
-                </button>
-              </div>
             </div>
           )}
 
-          {/* VIEW: ESQUECEU A SENHA */}
           {authView === 'forgot_password' && (
             <div>
               <h2 className="text-lg font-bold text-slate-100 mb-1">Recuperação de Acesso</h2>
@@ -1475,7 +1601,6 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEW: REDEFINIR SENHA */}
           {authView === 'reset_password_verify' && (
             <div>
               <h2 className="text-lg font-bold text-slate-100 mb-1">Crie sua Nova Senha</h2>
@@ -1543,12 +1668,12 @@ export default function App() {
   }
 
   // =========================================================================
-  // RENDERIZAÇÃO: PAINEL PRINCIPAL (AUTENTICADO)
+  // PAINEL OPERACIONAL PRINCIPAL
   // =========================================================================
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* BARRA SUPERIOR DO SISTEMA */}
+      {/* BARRA SUPERIOR */}
       <header className="h-16 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
@@ -1561,14 +1686,14 @@ export default function App() {
                   NexusAds
                 </span>
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">
-                  v2.0
+                  PRO
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-medium">Tráfego Pago & Atendimento Multicanal</p>
             </div>
           </div>
 
-          {/* SELETOR DE EMPRESAS / CLIENTES */}
+          {/* SELETOR DE EMPRESAS */}
           {currentUser.role !== 'CLIENT_VIEWER' && (
             <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5">
               <Building2 className="w-4 h-4 text-indigo-400" />
@@ -1587,11 +1712,10 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Botão Rápido + Novo Cliente */}
               <button
                 onClick={() => setIsCompanyModalOpen(true)}
                 title="Cadastrar Novo Cliente"
-                className="ml-2 p-1.5 bg-indigo-600/30 hover:bg-indigo-600 border border-indigo-500/40 text-indigo-200 hover:text-white rounded-lg transition-all"
+                className="ml-2 p-1.5 bg-indigo-600/30 hover:bg-indigo-600 border border-indigo-500/40 text-indigo-200 hover:text-white rounded-lg transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
@@ -1599,13 +1723,20 @@ export default function App() {
           )}
         </div>
 
-        {/* USUÁRIO LOGADO & AÇÕES */}
+        {/* DIREITA: BOTÃO EXPORTAR RELATÓRIO + WHATSAPP STATUS + PERFIL */}
         <div className="flex items-center gap-4">
-          {/* Badge de Conexão WhatsApp Evolution */}
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Relatório do Cliente
+          </button>
+
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-950/40 border border-emerald-800/60 rounded-xl">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="text-xs text-emerald-300 font-medium">
-              Evolution API: <b>{activeCompany.evolutionInstance || 'meu'}</b> (Online)
+              Evolution API: <b>{activeCompany.evolutionInstance || 'meu'}</b>
             </span>
           </div>
 
@@ -1629,7 +1760,7 @@ export default function App() {
             <button
               onClick={handleLogout}
               className="p-2 bg-slate-900 hover:bg-red-950/60 border border-slate-800 hover:border-red-800 text-slate-400 hover:text-red-300 rounded-xl transition-all cursor-pointer"
-              title="Sair do Sistema"
+              title="Sair"
             >
               <Lock className="w-4 h-4" />
             </button>
@@ -1637,7 +1768,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* CORPO PRINCIPAL COM MENU LATERAL E CONTEÚDO */}
+      {/* ÁREA PRINCIPAL */}
       <div className="flex flex-1 overflow-hidden">
         {/* MENU LATERAL */}
         <aside className="w-64 border-r border-slate-800/80 bg-slate-900/40 p-4 flex flex-col justify-between shrink-0">
@@ -1681,7 +1812,7 @@ export default function App() {
             >
               <div className="flex items-center gap-3">
                 <Sliders className="w-4 h-4" />
-                Piloto Automático
+                Piloto & Horários
               </div>
               <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded">
                 {filteredRules.length}
@@ -1698,10 +1829,27 @@ export default function App() {
             >
               <div className="flex items-center gap-3">
                 <MessageSquare className="w-4 h-4" />
-                Caixa de Entrada & IA
+                Caixa & Vendas WhatsApp
               </div>
               <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 rounded">
                 {filteredConversations.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('utms')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'utms'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Link2 className="w-4 h-4" />
+                Gerador de UTMs
+              </div>
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 rounded">
+                {filteredUtms.length}
               </span>
             </button>
 
@@ -1759,7 +1907,7 @@ export default function App() {
             )}
           </nav>
 
-          {/* CARD DA EMPRESA SELECIONADA NO MENU LATERAL */}
+          {/* CARD DA EMPRESA SELECIONADA */}
           <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-2xl">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">Cliente Atual</span>
@@ -1776,7 +1924,7 @@ export default function App() {
           </div>
         </aside>
 
-        {/* ÁREA DE CONTEÚDO PRINCIPAL */}
+        {/* CONTEÚDO PRINCIPAL */}
         <main className="flex-1 overflow-y-auto p-6 bg-slate-950">
           {/* =========================================================================
               ABA: VISÃO GERAL (DASHBOARD)
@@ -1787,24 +1935,24 @@ export default function App() {
                 <div>
                   <h2 className="text-2xl font-bold text-slate-100">Visão Geral de Performance</h2>
                   <p className="text-xs text-slate-400">
-                    Métricas consolidadas de tráfego pago da empresa <b>{activeCompany.name}</b>.
+                    Métricas consolidadas de tráfego e vendas no WhatsApp para <b>{activeCompany.name}</b>.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => setIsReportModalOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Gerar Relatório
+                  </button>
+                  <button
                     onClick={() => setIsCampaignModalOpen(true)}
-                    className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+                    className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     Novo Anúncio
-                  </button>
-                  <button
-                    onClick={() => setIsCompanyModalOpen(true)}
-                    className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-all cursor-pointer"
-                  >
-                    <Building2 className="w-4 h-4" />
-                    Novo Cliente
                   </button>
                 </div>
               </div>
@@ -1819,27 +1967,31 @@ export default function App() {
                   <p className="text-2xl font-bold text-slate-100">
                     R$ {totalSpend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1">Limite mensal: R$ {activeCompany.monthlyAdBudget.toLocaleString('pt-BR')}</p>
-                </div>
-
-                <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl">
-                  <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-xs font-medium">ROAS Médio</span>
-                    <Flame className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <p className="text-2xl font-bold text-emerald-400">{overallRoas.toFixed(2)}x</p>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Receita estimada: R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    Limite mensal: R$ {activeCompany.monthlyAdBudget.toLocaleString('pt-BR')}
                   </p>
                 </div>
 
                 <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl">
                   <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-xs font-medium">Conversões / Leads</span>
+                    <span className="text-xs font-medium">ROAS Geral (Anúncios + WhatsApp)</span>
+                    <Flame className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <p className="text-2xl font-bold text-emerald-400">{overallRoas.toFixed(2)}x</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Receita Total: R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-medium">Conversões & Vendas</span>
                     <Target className="w-4 h-4 text-indigo-400" />
                   </div>
                   <p className="text-2xl font-bold text-slate-100">{totalConversions}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">CPA Médio: R$ {avgCpa.toFixed(2)}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    CPA Médio: R$ {avgCpa.toFixed(2)} • {filteredSales.length} vendas via WhatsApp
+                  </p>
                 </div>
 
                 <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl">
@@ -1852,18 +2004,18 @@ export default function App() {
                 </div>
               </div>
 
-              {/* LISTA RESUMIDA DE CAMPANHAS ATIVAS DA EMPRESA */}
+              {/* LISTA RESUMIDA DE ANÚNCIOS */}
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-base font-bold text-slate-100">Campanhas desta Empresa ({filteredCampaigns.length})</h3>
-                    <p className="text-xs text-slate-400">Anúncios ativos no Meta Ads, Google Ads e TikTok Ads.</p>
+                    <h3 className="text-base font-bold text-slate-100">Anúncios Ativos ({filteredCampaigns.length})</h3>
+                    <p className="text-xs text-slate-400">Meta Ads, Google Ads e TikTok Ads da empresa.</p>
                   </div>
                   <button
                     onClick={() => setActiveTab('campaigns')}
                     className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
                   >
-                    Ver todas <ArrowUpRight className="w-3.5 h-3.5" />
+                    Gerenciar todos <ArrowUpRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -1884,7 +2036,7 @@ export default function App() {
                         </span>
                         <div>
                           <p className="text-sm font-semibold text-slate-100">{camp.name}</p>
-                          <p className="text-xs text-slate-400">{camp.objective} • Orçamento Diário: R$ {camp.dailyBudget.toFixed(2)}</p>
+                          <p className="text-xs text-slate-400">{camp.objective} • Orçamento: R$ {camp.dailyBudget.toFixed(2)}/dia</p>
                         </div>
                       </div>
 
@@ -1898,8 +2050,8 @@ export default function App() {
                           onClick={() => handleToggleCampaign(camp.id)}
                           className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
                             camp.status === 'ACTIVE'
-                              ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800 hover:bg-amber-950/60 hover:text-amber-300 hover:border-amber-800'
-                              : 'bg-amber-950/60 text-amber-300 border border-amber-800 hover:bg-emerald-950/60 hover:text-emerald-300'
+                              ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800 hover:bg-amber-950/60'
+                              : 'bg-amber-950/60 text-amber-300 border border-amber-800 hover:bg-emerald-950/60'
                           }`}
                         >
                           {camp.status === 'ACTIVE' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -1908,13 +2060,454 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
 
-                  {filteredCampaigns.length === 0 && (
-                    <div className="py-8 text-center text-slate-500 text-sm">
-                      Nenhuma campanha cadastrada para esta empresa.{' '}
-                      <button onClick={() => setIsCampaignModalOpen(true)} className="text-indigo-400 font-bold underline">
-                        Criar primeiro anúncio
+          {/* =========================================================================
+              ABA: GERADOR DE UTMS & RASTREAMENTO PROFISSIONAL
+             ========================================================================= */}
+          {activeTab === 'utms' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-100">Gerador & Rastreador de Parâmetros UTM</h2>
+                  <p className="text-xs text-slate-400">
+                    Crie links rastreados com parâmetros UTM para Meta Ads, Google, TikTok e WhatsApp para <b>{activeCompany.name}</b>.
+                  </p>
+                </div>
+              </div>
+
+              {/* CONSTRUTOR DE LINKS */}
+              <div className="p-6 bg-slate-900/80 border border-slate-800 rounded-2xl">
+                <h3 className="text-sm font-bold text-slate-100 mb-4 flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-indigo-400" />
+                  Construtor de URL Parametrizada
+                </h3>
+
+                <form onSubmit={handleSaveUtmLink} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Título de Referência do Link</label>
+                      <input
+                        type="text"
+                        value={utmTitle}
+                        onChange={e => setUtmTitle(e.target.value)}
+                        placeholder="Ex: Anúncio Vídeo Vestido Festa - Reels"
+                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">URL de Destino (Site / Loja)</label>
+                      <input
+                        type="text"
+                        required
+                        value={utmUrl}
+                        onChange={e => setUtmUrl(e.target.value)}
+                        placeholder="https://suaempresa.com.br/pagina"
+                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Origem (utm_source)</label>
+                      <select
+                        value={utmSource}
+                        onChange={e => setUtmSource(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
+                      >
+                        <option value="meta">Meta Ads (Facebook/Insta)</option>
+                        <option value="google">Google Ads</option>
+                        <option value="tiktok">TikTok Ads</option>
+                        <option value="whatsapp">WhatsApp Direto</option>
+                        <option value="kwai">Kwai Ads</option>
+                        <option value="linkedin">LinkedIn Ads</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Meio / Posicionamento (utm_medium)</label>
+                      <select
+                        value={utmMedium}
+                        onChange={e => setUtmMedium(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
+                      >
+                        <option value="instagram_reels">Instagram Reels</option>
+                        <option value="instagram_stories">Instagram Stories</option>
+                        <option value="facebook_feed">Facebook Feed</option>
+                        <option value="cpc">Google Pesquisa (CPC)</option>
+                        <option value="youtube">YouTube Vídeo</option>
+                        <option value="tiktok_spark">TikTok Spark Ads</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Campanha (utm_campaign)</label>
+                      <input
+                        type="text"
+                        value={utmCampaignName}
+                        onChange={e => setUtmCampaignName(e.target.value)}
+                        placeholder="escala_verao_2026"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Conteúdo / Criativo (utm_content)</label>
+                      <input
+                        type="text"
+                        value={utmContentName}
+                        onChange={e => setUtmContentName(e.target.value)}
+                        placeholder="video_provador_1"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* PREVIEW DO LINK GERADO */}
+                  <div className="p-3.5 bg-slate-950 rounded-xl border border-indigo-900/60 flex items-center justify-between gap-3">
+                    <div className="flex-1 overflow-hidden">
+                      <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1">Link Final Gerado para Usar no Anúncio:</span>
+                      <code className="text-xs text-emerald-400 font-mono break-all select-all">
+                        {generatedFinalUtmUrl}
+                      </code>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(generatedFinalUtmUrl)}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 cursor-pointer"
+                    >
+                      {copiedUtm ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedUtm ? 'Copiado!' : 'Copiar Link'}
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Salvar este Link Rastreado
+                  </button>
+                </form>
+              </div>
+
+              {/* LISTA DE LINKS GERADOS */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+                <h3 className="text-base font-bold text-slate-100 mb-3">Links Rastreados Salvos ({filteredUtms.length})</h3>
+                <div className="divide-y divide-slate-800">
+                  {filteredUtms.map(u => (
+                    <div key={u.id} className="py-3.5 flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-xs text-slate-100">{u.title}</span>
+                          <span className="px-1.5 py-0.2 text-[9px] bg-slate-800 text-indigo-300 rounded uppercase font-bold">
+                            {u.source} / {u.medium}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-mono break-all">{u.finalUrl}</p>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right text-xs">
+                          <span className="font-bold text-slate-200">{u.clicks} cliques</span>
+                          <p className="text-[10px] text-emerald-400">{u.conversions} conversões</p>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(u.finalUrl)}
+                          className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs"
+                          title="Copiar Link"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              ABA: PILOTO AUTOMÁTICO & PROGRAMAÇÃO DE HORÁRIOS (DAYPARTING)
+             ========================================================================= */}
+          {activeTab === 'autopilot' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-100">Piloto Automático & Programação de Horários</h2>
+                  <p className="text-xs text-slate-400">
+                    Otimização contínua com Stop-Loss, Escala e Pausa Noturna de anúncios para <b>{activeCompany.name}</b>.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsRuleModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nova Regra Inteligente
+                </button>
+              </div>
+
+              {/* CARD DE PROGRAMAÇÃO POR HORÁRIOS (DAYPARTING) */}
+              <div className="p-5 bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-800/60 rounded-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-100">Programação por Horários (Dayparting)</h3>
+                      <p className="text-xs text-slate-400">
+                        Economize verba pausando anúncios de WhatsApp fora do horário de atendimento.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={dayparting.enabled}
+                      onChange={e => setDayparting({ ...dayparting, enabled: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-xs font-bold text-indigo-300">
+                      {dayparting.enabled ? '🟢 Dayparting Ativo' : '⚪ Desativado'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-800/80">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Horário de Início</label>
+                    <input
+                      type="time"
+                      value={dayparting.startHour}
+                      onChange={e => setDayparting({ ...dayparting, startHour: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Horário de Término</label>
+                    <input
+                      type="time"
+                      value={dayparting.endHour}
+                      onChange={e => setDayparting({ ...dayparting, endHour: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <div className="p-2 bg-emerald-950/40 border border-emerald-800/60 rounded-xl text-xs text-emerald-300 w-full text-center font-semibold">
+                      Status Atual: 🟢 Anúncios em Horário de Atendimento
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* REGRAS ATIVAS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredRules.map(rule => (
+                  <div key={rule.id} className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl relative">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-slate-100">{rule.name}</span>
+                      <button
+                        onClick={() => handleToggleRule(rule.id)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${
+                          rule.isActive
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            : 'bg-slate-800 text-slate-500 border border-slate-700'
+                        }`}
+                      >
+                        {rule.isActive ? '🟢 Regra Ativa' : '⚪ Desativada'}
                       </button>
+                    </div>
+
+                    <div className="space-y-2 text-xs text-slate-300 mb-4 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                      <p>
+                        <b>Condição:</b> Se <code>{rule.conditionField}</code> {rule.operator === 'GREATER_THAN' ? '>' : '<'}{' '}
+                        <b>{rule.thresholdValue}</b>
+                      </p>
+                      <p>
+                        <b>Ação Imediata:</b>{' '}
+                        <span className="text-indigo-400 font-semibold">
+                          {rule.action === 'PAUSE_AD'
+                            ? 'Pausar Anúncio Automaticamente'
+                            : rule.action === 'INCREASE_BUDGET'
+                            ? `Aumentar Verba em ${rule.actionValue}%`
+                            : 'Notificar Gestor no WhatsApp'}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
+                      <span>Último disparo: {rule.lastTriggered}</span>
+                      <button
+                        onClick={() => setAutomationRules(prev => prev.filter(r => r.id !== rule.id))}
+                        className="text-red-400 hover:text-red-300 text-xs"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              ABA: CAIXA DE ENTRADA & REGISTRO DE VENDAS DO WHATSAPP
+             ========================================================================= */}
+          {activeTab === 'inbox' && (
+            <div className="h-[calc(100vh-130px)] flex flex-col space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-100">Caixa de Entrada & Vendas WhatsApp</h2>
+                  <p className="text-xs text-slate-400">
+                    Registre as vendas geradas nos anúncios e responda via WhatsApp Real ({activeCompany.evolutionInstance}) para <b>{activeCompany.name}</b>.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsSaleModalOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/30 cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    Registrar Venda Deste Lead
+                  </button>
+
+                  <label className="flex items-center gap-2 text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/80 px-3 py-1.5 rounded-xl cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={sendRealWpp}
+                      onChange={e => setSendRealWpp(e.target.checked)}
+                      className="rounded"
+                    />
+                    Enviar via WhatsApp Real
+                  </label>
+                </div>
+              </div>
+
+              {/* CHAT + LISTA */}
+              <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden bg-slate-900/60 border border-slate-800 rounded-2xl">
+                {/* LISTA DE CONVERSAS */}
+                <div className="col-span-4 border-r border-slate-800 overflow-y-auto divide-y divide-slate-800">
+                  {filteredConversations.map(conv => (
+                    <div
+                      key={conv.id}
+                      onClick={() => setActiveConversationId(conv.id)}
+                      className={`p-3.5 cursor-pointer transition-colors ${
+                        activeConversationId === conv.id ? 'bg-indigo-950/40 border-l-4 border-indigo-500' : 'hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs text-slate-100">{conv.contactName}</span>
+                        <span className="text-[10px] text-slate-400">{conv.lastMessageTime}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 truncate mb-1">{conv.lastMessage}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">
+                          {conv.channel}
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-bold">{conv.aiStatus}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* JANELA DE CHAT */}
+                <div className="col-span-8 flex flex-col h-full overflow-hidden">
+                  {filteredConversations.find(c => c.id === activeConversationId) ? (
+                    (() => {
+                      const currentConv = filteredConversations.find(c => c.id === activeConversationId)!;
+                      const currentMsgs = messages[currentConv.id] || [];
+
+                      return (
+                        <>
+                          <div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
+                            <div>
+                              <p className="font-bold text-sm text-slate-100">{currentConv.contactName}</p>
+                              <p className="text-[11px] text-slate-400">
+                                {currentConv.contactPhone || 'Sem celular'} • Anúncio de origem: {currentConv.originAd}
+                              </p>
+                            </div>
+
+                            <button
+                              onClick={() => setIsSaleModalOpen(true)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <ShoppingBag className="w-3.5 h-3.5" />
+                              Registrar Venda (R$)
+                            </button>
+                          </div>
+
+                          {/* Mensagens */}
+                          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/20">
+                            {currentMsgs.map(m => (
+                              <div
+                                key={m.id}
+                                className={`flex ${
+                                  m.senderType === 'CUSTOMER'
+                                    ? 'justify-start'
+                                    : m.senderType === 'SYSTEM_SALE'
+                                    ? 'justify-center'
+                                    : 'justify-end'
+                                }`}
+                              >
+                                {m.senderType === 'SYSTEM_SALE' ? (
+                                  <div className="px-4 py-2 bg-gradient-to-r from-amber-950 to-emerald-950 border border-amber-600/60 rounded-xl text-xs font-bold text-amber-300 text-center shadow-lg">
+                                    {m.text}
+                                  </div>
+                                ) : (
+                                  <div
+                                    className={`max-w-[70%] p-3 rounded-2xl text-xs ${
+                                      m.senderType === 'CUSTOMER'
+                                        ? 'bg-slate-800 text-slate-100 rounded-bl-none'
+                                        : m.senderType === 'AI_BOT'
+                                        ? 'bg-indigo-600/90 text-white rounded-br-none shadow-md'
+                                        : 'bg-emerald-600 text-white rounded-br-none'
+                                    }`}
+                                  >
+                                    {m.senderType === 'AI_BOT' && (
+                                      <p className="text-[10px] font-bold text-indigo-200 mb-1 flex items-center gap-1">
+                                        <Bot className="w-3 h-3" /> Sofia (IA da Empresa)
+                                      </p>
+                                    )}
+                                    <p>{m.text}</p>
+                                    <span className="block text-[9px] opacity-70 text-right mt-1">{m.time}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Campo de Envio */}
+                          <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={newMessageText}
+                              onChange={e => setNewMessageText(e.target.value)}
+                              placeholder={`Responder ${currentConv.contactName}...`}
+                              className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                            />
+                            <button
+                              type="submit"
+                              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              Enviar
+                            </button>
+                          </form>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+                      Selecione uma conversa ao lado.
                     </div>
                   )}
                 </div>
@@ -1923,7 +2516,7 @@ export default function App() {
           )}
 
           {/* =========================================================================
-              ABA: CAMPANHAS & ANÚNCIOS (CRIAÇÃO E GESTÃO)
+              ABA: CAMPANHAS & ANÚNCIOS
              ========================================================================= */}
           {activeTab === 'campaigns' && (
             <div className="space-y-6">
@@ -1937,14 +2530,13 @@ export default function App() {
 
                 <button
                   onClick={() => setIsCampaignModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Criar Nova Campanha
                 </button>
               </div>
 
-              {/* TABELA DE CAMPANHAS */}
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-950/80 text-slate-400 uppercase font-semibold border-b border-slate-800">
@@ -2006,17 +2598,6 @@ export default function App() {
                         </td>
                       </tr>
                     ))}
-
-                    {filteredCampaigns.length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-500">
-                          Nenhum anúncio criado para esta empresa.{' '}
-                          <button onClick={() => setIsCampaignModalOpen(true)} className="text-indigo-400 font-bold underline">
-                            Criar Primeiro Anúncio Agora
-                          </button>
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
@@ -2024,255 +2605,7 @@ export default function App() {
           )}
 
           {/* =========================================================================
-              ABA: PILOTO AUTOMÁTICO (REGRAS DE STOP-LOSS E ESCALA)
-             ========================================================================= */}
-          {activeTab === 'autopilot' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-100">Piloto Automático & Otimização 24/7</h2>
-                  <p className="text-xs text-slate-400">
-                    Regras inteligentes que protegem seu orçamento (Stop-Loss) e escalam anúncios de alto ROAS para <b>{activeCompany.name}</b>.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => setIsRuleModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  Nova Regra Inteligente
-                </button>
-              </div>
-
-              {/* LISTA DE REGRAS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredRules.map(rule => (
-                  <div key={rule.id} className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl relative">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-slate-100">{rule.name}</span>
-                      <button
-                        onClick={() => handleToggleRule(rule.id)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${
-                          rule.isActive
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            : 'bg-slate-800 text-slate-500 border border-slate-700'
-                        }`}
-                      >
-                        {rule.isActive ? '🟢 Regra Ativa' : '⚪ Desativada'}
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 text-xs text-slate-300 mb-4 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                      <p>
-                        <b>Condição:</b> Se <code>{rule.conditionField}</code> {rule.operator === 'GREATER_THAN' ? '>' : '<'}{' '}
-                        <b>{rule.thresholdValue}</b>
-                      </p>
-                      <p>
-                        <b>Ação Imediata:</b>{' '}
-                        <span className="text-indigo-400 font-semibold">
-                          {rule.action === 'PAUSE_AD'
-                            ? 'Pausar Anúncio Automaticamente'
-                            : rule.action === 'INCREASE_BUDGET'
-                            ? `Aumentar Verba em ${rule.actionValue}%`
-                            : 'Notificar Gestor no WhatsApp'}
-                        </span>
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-                      <span>Último disparo: {rule.lastTriggered}</span>
-                      <button
-                        onClick={() => setAutomationRules(prev => prev.filter(r => r.id !== rule.id))}
-                        className="text-red-400 hover:text-red-300 text-xs"
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {filteredRules.length === 0 && (
-                  <div className="col-span-2 p-12 text-center text-slate-500 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl">
-                    Nenhuma regra de piloto automático criada para esta empresa.{' '}
-                    <button onClick={() => setIsRuleModalOpen(true)} className="text-indigo-400 font-bold underline">
-                      Criar Regra de Stop-Loss Agora
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* =========================================================================
-              ABA: CAIXA DE ENTRADA & AUTOATENDIMENTO COM IA (POR EMPRESA)
-             ========================================================================= */}
-          {activeTab === 'inbox' && (
-            <div className="h-[calc(100vh-130px)] flex flex-col space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-100">Caixa de Entrada Unificada & Atendimento IA</h2>
-                  <p className="text-xs text-slate-400">
-                    Conversas originadas de anúncios para <b>{activeCompany.name}</b> (Instância: {activeCompany.evolutionInstance}).
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/80 px-3 py-1.5 rounded-xl cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={sendRealWpp}
-                      onChange={e => setSendRealWpp(e.target.checked)}
-                      className="rounded"
-                    />
-                    Enviar também pelo WhatsApp Real (Evolution API)
-                  </label>
-                </div>
-              </div>
-
-              {/* LAYOUT CHAT + LISTA */}
-              <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden bg-slate-900/60 border border-slate-800 rounded-2xl">
-                {/* LISTA DE CONVERSAS */}
-                <div className="col-span-4 border-r border-slate-800 overflow-y-auto divide-y divide-slate-800">
-                  {filteredConversations.map(conv => (
-                    <div
-                      key={conv.id}
-                      onClick={() => setActiveConversationId(conv.id)}
-                      className={`p-3.5 cursor-pointer transition-colors ${
-                        activeConversationId === conv.id ? 'bg-indigo-950/40 border-l-4 border-indigo-500' : 'hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs text-slate-100">{conv.contactName}</span>
-                        <span className="text-[10px] text-slate-400">{conv.lastMessageTime}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-300 truncate mb-1">{conv.lastMessage}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">
-                          {conv.channel}
-                        </span>
-                        <span className="text-[10px] text-indigo-400 font-semibold">{conv.aiStatus}</span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {filteredConversations.length === 0 && (
-                    <div className="p-8 text-center text-xs text-slate-500">
-                      Nenhuma conversa registrada para esta empresa.
-                    </div>
-                  )}
-                </div>
-
-                {/* JANELA DE CHAT & IA */}
-                <div className="col-span-8 flex flex-col h-full overflow-hidden">
-                  {/* Cabeçalho da Conversa */}
-                  {filteredConversations.find(c => c.id === activeConversationId) ? (
-                    (() => {
-                      const currentConv = filteredConversations.find(c => c.id === activeConversationId)!;
-                      const currentMsgs = messages[currentConv.id] || [];
-
-                      return (
-                        <>
-                          <div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
-                            <div>
-                              <p className="font-bold text-sm text-slate-100">{currentConv.contactName}</p>
-                              <p className="text-[11px] text-slate-400">
-                                {currentConv.contactPhone || 'Sem telefone'} • Anúncio de origem: {currentConv.originAd}
-                              </p>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <span className="px-2.5 py-1 text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full flex items-center gap-1.5">
-                                <Bot className="w-3.5 h-3.5" />
-                                {currentConv.aiStatus}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Mensagens */}
-                          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/20">
-                            {currentMsgs.map(m => (
-                              <div
-                                key={m.id}
-                                className={`flex ${m.senderType === 'CUSTOMER' ? 'justify-start' : 'justify-end'}`}
-                              >
-                                <div
-                                  className={`max-w-[70%] p-3 rounded-2xl text-xs ${
-                                    m.senderType === 'CUSTOMER'
-                                      ? 'bg-slate-800 text-slate-100 rounded-bl-none'
-                                      : m.senderType === 'AI_BOT'
-                                      ? 'bg-indigo-600/90 text-white rounded-br-none shadow-md shadow-indigo-600/20'
-                                      : 'bg-emerald-600 text-white rounded-br-none'
-                                  }`}
-                                >
-                                  {m.senderType === 'AI_BOT' && (
-                                    <p className="text-[10px] font-bold text-indigo-200 mb-1 flex items-center gap-1">
-                                      <Bot className="w-3 h-3" /> Sofia (IA da Empresa)
-                                    </p>
-                                  )}
-                                  <p>{m.text}</p>
-                                  <span className="block text-[9px] opacity-70 text-right mt-1">{m.time}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Campo de Envio */}
-                          <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={newMessageText}
-                              onChange={e => setNewMessageText(e.target.value)}
-                              placeholder={`Responder ${currentConv.contactName}... (ou deixe a IA responder)`}
-                              className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
-                            />
-                            <button
-                              type="submit"
-                              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-indigo-600/20 cursor-pointer"
-                            >
-                              <Send className="w-3.5 h-3.5" />
-                              Enviar
-                            </button>
-                          </form>
-                        </>
-                      );
-                    })()
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
-                      Selecione uma conversa ao lado.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* CARD DE CONFIGURAÇÃO DO PROMPT DA IA DA EMPRESA */}
-              <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-bold text-slate-200">
-                      Personalidade & Prompt da IA para {activeCompany.name}
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    defaultValue={activeCompany.aiPrompt}
-                    onBlur={e => handleSaveAiPrompt(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <button
-                  onClick={() => alert('Prompt salvo!')}
-                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-xl"
-                >
-                  Salvar Prompt
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* =========================================================================
-              ABA: CONEXÕES, REDES SOCIAIS & EVOLUTION API
+              ABA: CONEXÕES & EVOLUTION API
              ========================================================================= */}
           {activeTab === 'integrations' && (
             <div className="space-y-6">
@@ -2280,37 +2613,28 @@ export default function App() {
                 <div>
                   <h2 className="text-2xl font-bold text-slate-100">Conectar Redes Sociais & WhatsApp (Evolution API)</h2>
                   <p className="text-xs text-slate-400">
-                    Conecte as contas de anúncios da empresa <b>{activeCompany.name}</b> e gerencie as instâncias da Evolution API.
+                    Conexões ativas para <b>{activeCompany.name}</b>.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsConnectionModalOpen(true)}
-                    className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Conectar Conta de Anúncios
-                  </button>
-                  <button
-                    onClick={fetchEvolution}
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingEvolution ? 'animate-spin' : ''}`} />
-                    Atualizar Evolution API
-                  </button>
-                </div>
+                <button
+                  onClick={() => setIsConnectionModalOpen(true)}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  Conectar Conta de Anúncios
+                </button>
               </div>
 
-              {/* CARD DESTAQUE: EVOLUTION API (WHATSAPP REAL) */}
+              {/* CARD EVOLUTION API */}
               <div className="p-5 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-800/60 rounded-2xl">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-600/30">
+                    <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
                       <Smartphone className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-100">Evolution API (Servidor Local Integrado)</h3>
+                      <h3 className="text-base font-bold text-slate-100">Evolution API (Servidor WhatsApp Integrado)</h3>
                       <p className="text-xs text-emerald-400">
                         Status do Servidor: <b>Online</b> (URL: <code>https://api.cristhiansancore.com.br</code>)
                       </p>
@@ -2318,11 +2642,10 @@ export default function App() {
                   </div>
 
                   <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-xs font-bold">
-                    Instâncias Carregadas: {evolutionInstances.length}
+                    Instâncias: {evolutionInstances.length}
                   </span>
                 </div>
 
-                {/* Instâncias Detectadas */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                   {evolutionInstances.map(inst => (
                     <div
@@ -2355,9 +2678,9 @@ export default function App() {
                           setClientCompanies(prev =>
                             prev.map(c => (c.id === selectedCompanyId ? { ...c, evolutionInstance: inst.name } : c))
                           );
-                          alert(`Instância '${inst.name}' vinculada à empresa ${activeCompany.name}!`);
+                          alert(`Instância '${inst.name}' vinculada a ${activeCompany.name}!`);
                         }}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white rounded-lg text-xs font-semibold transition-all"
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white rounded-lg text-xs font-semibold transition-all cursor-pointer"
                       >
                         Vincular
                       </button>
@@ -2365,7 +2688,6 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* TESTE DE DISPARO REAL DE WHATSAPP */}
                 <div className="pt-4 border-t border-slate-800/80">
                   <h4 className="text-xs font-bold text-slate-200 mb-2">Testar Envio Real pelo WhatsApp</h4>
                   <form onSubmit={handleTestEvolutionMessage} className="flex flex-col md:flex-row gap-2">
@@ -2390,103 +2712,35 @@ export default function App() {
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Send className="w-3.5 h-3.5" />
-                      Enviar no WhatsApp
+                      Enviar
                     </button>
                   </form>
-
-                  {evolutionFeedback && (
-                    <p className="text-xs mt-2 font-medium text-slate-300">{evolutionFeedback}</p>
-                  )}
+                  {evolutionFeedback && <p className="text-xs mt-2 font-medium text-slate-300">{evolutionFeedback}</p>}
                 </div>
-              </div>
-
-              {/* LISTA DE CONEXÕES COM REDES SOCIAIS (META, GOOGLE, TIKTOK, ETC.) */}
-              <h3 className="text-base font-bold text-slate-100">Redes de Anúncios Conectadas a {activeCompany.name}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {['META', 'GOOGLE', 'TIKTOK', 'KWAI', 'LINKEDIN'].map(plat => {
-                  const conn = filteredConnections.find(c => c.platform === plat);
-                  const isConn = conn?.connected;
-
-                  return (
-                    <div key={plat} className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-extrabold text-sm text-slate-100">{plat} ADS</span>
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                              isConn
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                : 'bg-slate-800 text-slate-500'
-                            }`}
-                          >
-                            {isConn ? '🟢 Conectado' : '⚪ Desconectado'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400 mb-1">
-                          {conn?.accountName || 'Nenhuma conta vinculada'}
-                        </p>
-                        {conn && (
-                          <p className="text-[10px] text-slate-500 font-mono">
-                            ID: {conn.accountId} • Pixel: {conn.pixelOrTagId}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
-                        {conn ? (
-                          <button
-                            onClick={() => handleToggleConnection(conn.id)}
-                            className="text-xs font-semibold text-slate-300 hover:text-white"
-                          >
-                            {isConn ? 'Desativar' : 'Reativar'}
-                          </button>
-                        ) : (
-                          <span className="text-[11px] text-slate-500">Não configurado</span>
-                        )}
-
-                        <button
-                          onClick={() => {
-                            setConnPlatform(plat as Platform);
-                            setConnAccountName(conn?.accountName || '');
-                            setConnAccountId(conn?.accountId || '');
-                            setConnPixelId(conn?.pixelOrTagId || '');
-                            setIsConnectionModalOpen(true);
-                          }}
-                          className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer"
-                        >
-                          Configurar
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           )}
 
           {/* =========================================================================
-              ABA: EMPRESAS & CLIENTES (GESTÃO DA AGÊNCIA)
+              ABA: EMPRESAS & CLIENTES
              ========================================================================= */}
           {activeTab === 'clients' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-100">Clientes & Contas Gerenciadas</h2>
-                  <p className="text-xs text-slate-400">
-                    Cadastre e administre as empresas atendidas pela sua agência.
-                  </p>
+                  <p className="text-xs text-slate-400">Cadastre e administre as empresas atendidas pela agência.</p>
                 </div>
 
                 <button
                   onClick={() => setIsCompanyModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Novo Cliente / Empresa
                 </button>
               </div>
 
-              {/* LISTA DE EMPRESAS */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {clientCompanies.map(comp => (
                   <div
@@ -2494,7 +2748,7 @@ export default function App() {
                     className={`p-5 rounded-2xl border transition-all ${
                       selectedCompanyId === comp.id
                         ? 'bg-indigo-950/30 border-indigo-500/80 ring-2 ring-indigo-500/20'
-                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                        : 'bg-slate-900/80 border-slate-800'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -2517,12 +2771,12 @@ export default function App() {
                         <span className="font-semibold text-emerald-400">R$ {comp.monthlyFee.toLocaleString('pt-BR')}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Instância Evolution:</span>
+                        <span className="text-slate-400">WhatsApp Evolution:</span>
                         <span className="font-mono text-indigo-300 font-bold">{comp.evolutionInstance}</span>
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between">
+                    <div className="mt-4">
                       <button
                         onClick={() => {
                           setSelectedCompanyId(comp.id);
@@ -2544,92 +2798,57 @@ export default function App() {
           )}
 
           {/* =========================================================================
-              ABA: CONTROLE DO SUPER ADMIN (GESTÃO TOTAL DE USUÁRIOS)
+              ABA: CONTROLE DO SUPER ADMIN
              ========================================================================= */}
           {activeTab === 'admin' && currentUser.role === 'SUPER_ADMIN' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-100">Gestão Mestre de Usuários & Acessos</h2>
-                  <p className="text-xs text-slate-400">
-                    Controle de contas, alteração de nome, telefone, login, senhas e bloqueios.
-                  </p>
+                  <p className="text-xs text-slate-400">Controle completo de contas, @usuários, telefones e senhas.</p>
                 </div>
 
                 <button
                   onClick={() => setIsCreateUserModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/30 transition-all cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/30 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Novo Usuário
                 </button>
               </div>
 
-              {/* TABELA DE USUÁRIOS */}
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-950/80 text-slate-400 uppercase font-semibold border-b border-slate-800">
                     <tr>
                       <th className="p-3.5">Nome</th>
                       <th className="p-3.5">@Usuário</th>
-                      <th className="p-3.5">Celular / WhatsApp</th>
-                      <th className="p-3.5">Papel / Acesso</th>
+                      <th className="p-3.5">Celular</th>
+                      <th className="p-3.5">Papel</th>
                       <th className="p-3.5">Status</th>
                       <th className="p-3.5 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {systemUsers.map(u => (
-                      <tr key={u.id} className="hover:bg-slate-800/40 transition-colors">
+                      <tr key={u.id} className="hover:bg-slate-800/40">
                         <td className="p-3.5 font-bold text-slate-100">{u.name}</td>
                         <td className="p-3.5 font-mono text-indigo-400 font-bold">@{u.username}</td>
                         <td className="p-3.5 text-slate-300">{u.phone}</td>
+                        <td className="p-3.5 font-bold">{u.role}</td>
                         <td className="p-3.5">
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                              u.role === 'SUPER_ADMIN'
-                                ? 'bg-amber-500/20 text-amber-300'
-                                : u.role === 'AGENCY_ADMIN'
-                                ? 'bg-indigo-500/20 text-indigo-300'
-                                : 'bg-emerald-500/20 text-emerald-300'
-                            }`}
-                          >
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="p-3.5">
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                              u.status === 'ACTIVE'
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : 'bg-red-500/20 text-red-300'
-                            }`}
-                          >
-                            {u.status === 'ACTIVE' ? 'Ativo' : 'Bloqueado'}
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${u.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}>
+                            {u.status}
                           </span>
                         </td>
                         <td className="p-3.5 text-right space-x-2">
-                          <button
-                            onClick={() => handleOpenEditUser(u)}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-semibold"
-                          >
+                          <button onClick={() => handleOpenEditUser(u)} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-semibold">
                             Editar
                           </button>
-                          <button
-                            onClick={() => handleToggleUserStatus(u.id)}
-                            className={`px-2.5 py-1 rounded-lg font-semibold ${
-                              u.status === 'ACTIVE'
-                                ? 'bg-red-950/60 text-red-300 hover:bg-red-900/60'
-                                : 'bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/60'
-                            }`}
-                          >
+                          <button onClick={() => handleToggleUserStatus(u.id)} className="px-2.5 py-1 bg-red-950/60 text-red-300 rounded-lg font-semibold">
                             {u.status === 'ACTIVE' ? 'Bloquear' : 'Desbloquear'}
                           </button>
-                          <button
-                            onClick={() => handleDeleteUser(u.id)}
-                            className="p-1 text-slate-500 hover:text-red-400"
-                            title="Excluir"
-                          >
+                          <button onClick={() => handleDeleteUser(u.id)} className="p-1 text-slate-500 hover:text-red-400">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </td>
@@ -2644,10 +2863,206 @@ export default function App() {
       </div>
 
       {/* =========================================================================
-          MODAIS OPERACIONAIS
+          MODAL: RELATÓRIO EXECUTIVO WHITE-LABEL DO CLIENTE (PDF / IMPRESSÃO)
          ========================================================================= */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative my-8 print:p-0 print:border-none print:bg-white print:text-black">
+            {/* BARRA DE AÇÃO DO RELATÓRIO */}
+            <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-800 print:hidden">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Visualização de Relatório Executivo</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  Imprimir / Salvar PDF
+                </button>
+                <button
+                  onClick={handleSendReportWhatsApp}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                  Enviar no WhatsApp do Cliente
+                </button>
+                <button onClick={() => setIsReportModalOpen(false)} className="text-slate-400 hover:text-slate-200">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
 
-      {/* MODAL 1: CADASTRAR NOVO CLIENTE / EMPRESA */}
+            {/* CORPO DO RELATÓRIO (FORMATADO PARA CLIENTE) */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-5">
+                <div>
+                  <h1 className="text-2xl font-black text-slate-100">Relatório Executivo de Tráfego Pago</h1>
+                  <p className="text-sm font-semibold text-indigo-400">{activeCompany.name}</p>
+                  <p className="text-xs text-slate-400">{activeCompany.niche} • CNPJ: {activeCompany.document}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-400">Gestão de Tráfego & Performance</p>
+                  <p className="text-sm font-bold text-slate-200">{currentUser.agencyName || 'Agência Alpha Digital'}</p>
+                  <p className="text-[11px] text-slate-500">Emissão: {new Date().toLocaleDateString('pt-BR')}</p>
+                </div>
+              </div>
+
+              {/* CARDS RESUMO DO RELATÓRIO */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  <span className="text-[11px] text-slate-400 block mb-1">Total Investido</span>
+                  <p className="text-xl font-bold text-slate-100">R$ {totalSpend.toFixed(2)}</p>
+                </div>
+                <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  <span className="text-[11px] text-slate-400 block mb-1">Faturamento Gerado</span>
+                  <p className="text-xl font-bold text-emerald-400">R$ {totalRevenue.toFixed(2)}</p>
+                </div>
+                <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  <span className="text-[11px] text-slate-400 block mb-1">Retorno sobre Gasto (ROAS)</span>
+                  <p className="text-xl font-bold text-emerald-400">{overallRoas.toFixed(2)}x</p>
+                </div>
+                <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl">
+                  <span className="text-[11px] text-slate-400 block mb-1">Total Conversões / Vendas</span>
+                  <p className="text-xl font-bold text-indigo-400">{totalConversions}</p>
+                </div>
+              </div>
+
+              {/* TABELA DE DESEMPENHO POR CAMPANHA */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Desempenho por Anúncio & Canal</h4>
+                <div className="border border-slate-800 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
+                      <tr>
+                        <th className="p-2.5">Campanha</th>
+                        <th className="p-2.5">Canal</th>
+                        <th className="p-2.5">Investimento</th>
+                        <th className="p-2.5">Cliques</th>
+                        <th className="p-2.5">Conversões</th>
+                        <th className="p-2.5">ROAS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {filteredCampaigns.map(c => (
+                        <tr key={c.id}>
+                          <td className="p-2.5 font-semibold text-slate-200">{c.name}</td>
+                          <td className="p-2.5 font-bold text-indigo-400">{c.platform}</td>
+                          <td className="p-2.5">R$ {c.spendToday.toFixed(2)}</td>
+                          <td className="p-2.5">{c.clicks}</td>
+                          <td className="p-2.5 font-bold text-slate-100">{c.conversions}</td>
+                          <td className="p-2.5 font-bold text-emerald-400">{c.roas.toFixed(1)}x</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* VENDAS REGISTRADAS NO WHATSAPP */}
+              {filteredSales.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
+                    Vendas Confirmadas pelo WhatsApp ({filteredSales.length})
+                  </h4>
+                  <div className="border border-slate-800 rounded-xl overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
+                        <tr>
+                          <th className="p-2.5">Cliente</th>
+                          <th className="p-2.5">Produto</th>
+                          <th className="p-2.5">Pagamento</th>
+                          <th className="p-2.5">Campanha de Origem</th>
+                          <th className="p-2.5 text-right">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {filteredSales.map(s => (
+                          <tr key={s.id}>
+                            <td className="p-2.5 font-bold text-slate-100">{s.customerName}</td>
+                            <td className="p-2.5 text-slate-300">{s.product}</td>
+                            <td className="p-2.5 text-indigo-400 font-semibold">{s.paymentMethod}</td>
+                            <td className="p-2.5 text-slate-400">{s.campaignName}</td>
+                            <td className="p-2.5 text-right font-bold text-emerald-400">R$ {s.amount.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: REGISTRAR VENDA NO WHATSAPP
+         ========================================================================= */}
+      {isSaleModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-emerald-400" />
+                Registrar Venda Deste Lead
+              </h3>
+              <button onClick={() => setIsSaleModalOpen(false)} className="text-slate-400 hover:text-slate-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterSale} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Valor Total da Venda (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={saleAmount}
+                  onChange={e => setSaleAmount(e.target.value)}
+                  placeholder="Ex: 250.00"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-lg font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Produto / Serviço Vendido</label>
+                <input
+                  type="text"
+                  required
+                  value={saleProduct}
+                  onChange={e => setSaleProduct(e.target.value)}
+                  placeholder="Ex: Vestido Festa Rosa M ou Avaliação Implante"
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Forma de Pagamento</label>
+                <select
+                  value={saleMethod}
+                  onChange={e => setSaleMethod(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
+                >
+                  <option value="PIX">PIX (À Vista)</option>
+                  <option value="Cartão de Crédito">Cartão de Crédito</option>
+                  <option value="Boleto Bancário">Boleto Bancário</option>
+                  <option value="Link de Pagamento">Link de Pagamento (MercadoPago/Stripe/Asaas)</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs shadow-lg shadow-emerald-600/30 transition-all cursor-pointer mt-2"
+              >
+                Confirmar Venda e Somar no ROAS
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CRIAR NOVO CLIENTE */}
       {isCompanyModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
@@ -2682,7 +3097,7 @@ export default function App() {
                     required
                     value={newCompanyNiche}
                     onChange={e => setNewCompanyNiche(e.target.value)}
-                    placeholder="Ex: Gastronomia & Delivery"
+                    placeholder="Gastronomia"
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -2700,12 +3115,12 @@ export default function App() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Contato / Responsável</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Contato Responsável</label>
                   <input
                     type="text"
                     value={newCompanyOwner}
                     onChange={e => setNewCompanyOwner(e.target.value)}
-                    placeholder="Ex: Carlos Oliveira"
+                    placeholder="Carlos Silva"
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -2723,7 +3138,7 @@ export default function App() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Limite Verba Tráfego (R$)</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Verba Mensal de Anúncios (R$)</label>
                   <input
                     type="number"
                     value={newCompanyBudget}
@@ -2733,11 +3148,11 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Instância Evolution WhatsApp</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Instância WhatsApp Evolution</label>
                   <select
                     value={newCompanyInstance}
                     onChange={e => setNewCompanyInstance(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                   >
                     <option value="meu">meu (Cristhian - Ativo)</option>
                     <option value="teste">teste</option>
@@ -2756,7 +3171,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 2: CRIAR NOVA CAMPANHA / ANÚNCIO */}
+      {/* MODAL: CRIAR CAMPANHA */}
       {isCampaignModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
@@ -2777,7 +3192,7 @@ export default function App() {
                   <select
                     value={newCampPlatform}
                     onChange={e => setNewCampPlatform(e.target.value as Platform)}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                   >
                     <option value="META">Meta Ads (Instagram & Facebook)</option>
                     <option value="GOOGLE">Google Ads (Pesquisa & Display)</option>
@@ -2787,11 +3202,11 @@ export default function App() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Objetivo da Campanha</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Objetivo</label>
                   <select
                     value={newCampObjective}
                     onChange={e => setNewCampObjective(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                   >
                     <option value="Vendas / Conversão">Vendas / Conversão no Site</option>
                     <option value="Mensagens no WhatsApp">Mensagens no WhatsApp</option>
@@ -2809,7 +3224,7 @@ export default function App() {
                   value={newCampName}
                   onChange={e => setNewCampName(e.target.value)}
                   placeholder="Ex: [ESCALA] Promoção Fim de Semana - 30% OFF"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                 />
               </div>
 
@@ -2820,8 +3235,8 @@ export default function App() {
                   required
                   value={newCampBudget}
                   onChange={e => setNewCampBudget(e.target.value)}
-                  placeholder="Ex: 100"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                  placeholder="100"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                 />
               </div>
 
@@ -2831,8 +3246,8 @@ export default function App() {
                   rows={2}
                   value={newCampCopy}
                   onChange={e => setNewCampCopy(e.target.value)}
-                  placeholder="Digite a legenda ou texto persuasivo do anúncio..."
-                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                  placeholder="Digite a legenda persuasiva do anúncio..."
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                 />
               </div>
 
@@ -2843,7 +3258,7 @@ export default function App() {
                   value={newCampTarget}
                   onChange={e => setNewCampTarget(e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                 />
               </div>
 
@@ -2858,7 +3273,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 3: CRIAR NOVA REGRA DE PILOTO AUTOMÁTICO */}
+      {/* MODAL: CRIAR REGRA AUTOMAÇÃO */}
       {isRuleModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
@@ -2881,7 +3296,7 @@ export default function App() {
                   value={newRuleName}
                   onChange={e => setNewRuleName(e.target.value)}
                   placeholder="Ex: 🛡️ Stop-Loss: Pausar se gastar R$ 45 sem venda"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                 />
               </div>
 
@@ -2921,7 +3336,7 @@ export default function App() {
                     required
                     value={newRuleThreshold}
                     onChange={e => setNewRuleThreshold(e.target.value)}
-                    placeholder="Ex: 40"
+                    placeholder="40"
                     className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                   />
                 </div>
@@ -2939,19 +3354,6 @@ export default function App() {
                 </div>
               </div>
 
-              {newRuleAction === 'INCREASE_BUDGET' && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Percentual de Aumento (%)</label>
-                  <input
-                    type="number"
-                    value={newRuleActionVal}
-                    onChange={e => setNewRuleActionVal(e.target.value)}
-                    placeholder="15"
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
-                  />
-                </div>
-              )}
-
               <button
                 type="submit"
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition-all cursor-pointer mt-2"
@@ -2963,7 +3365,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 4: CONECTAR CONTA DE ANÚNCIOS */}
+      {/* MODAL: CONECTAR CONTA DE ANÚNCIOS */}
       {isConnectionModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
@@ -3024,7 +3426,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 5: EDITAR USUÁRIO PELO SUPER ADMIN */}
+      {/* MODAL: EDITAR USUÁRIO SUPER ADMIN */}
       {isEditUserModalOpen && editingUser && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
@@ -3118,7 +3520,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 6: CRIAR USUÁRIO PELO ADMIN */}
+      {/* MODAL: CRIAR USUÁRIO SUPER ADMIN */}
       {isCreateUserModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
@@ -3185,9 +3587,9 @@ export default function App() {
                   onChange={e => setAdminNewRole(e.target.value as UserRole)}
                   className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none"
                 >
-                  <option value="AGENCY_ADMIN">Gestor de Agência (Pode gerenciar clientes)</option>
-                  <option value="CLIENT_VIEWER">Cliente Final (Somente visualização)</option>
-                  <option value="SUPER_ADMIN">Super Administrador do Sistema</option>
+                  <option value="AGENCY_ADMIN">Gestor de Agência</option>
+                  <option value="CLIENT_VIEWER">Cliente Final</option>
+                  <option value="SUPER_ADMIN">Super Administrador</option>
                 </select>
               </div>
 

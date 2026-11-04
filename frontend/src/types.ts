@@ -68,11 +68,12 @@ export interface Conversation {
   lastMessage: string;
   lastMessageTime: string;
   aiStatus: string;
+  totalSalesValue?: number;
 }
 
 export interface Message {
   id: string;
-  senderType: 'CUSTOMER' | 'AGENT' | 'AI_BOT';
+  senderType: 'CUSTOMER' | 'AGENT' | 'AI_BOT' | 'SYSTEM_SALE';
   text: string;
   time: string;
 }
@@ -119,4 +120,40 @@ export interface NetworkConnection {
   pixelOrTagId?: string;
   accessToken?: string;
   updatedAt: string;
+}
+
+export interface UtmLink {
+  id: string;
+  companyId: string;
+  title: string;
+  destinationUrl: string;
+  finalUrl: string;
+  source: string;
+  medium: string;
+  campaign: string;
+  content: string;
+  clicks: number;
+  conversions: number;
+  createdAt: string;
+}
+
+export interface LeadSale {
+  id: string;
+  companyId: string;
+  conversationId: string;
+  customerName: string;
+  campaignName: string;
+  amount: number;
+  product: string;
+  paymentMethod: string;
+  createdAt: string;
+}
+
+export interface DaypartingConfig {
+  companyId: string;
+  enabled: boolean;
+  startHour: string;
+  endHour: string;
+  activeDays: string[];
+  autoPauseWhatsApp: boolean;
 }
