@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -28,23 +28,72 @@ import {
   Mail,
   UserCheck,
   Eye,
-  FileText
+  FileText,
+  LogOut,
+  KeyRound,
+  ArrowRight
 } from 'lucide-react';
-import { Company, Campaign, AutomationRule, Conversation, Message, Agency, SuperAdminData } from './types';
+import { Company, Campaign, AutomationRule, Conversation, Message, Agency, SuperAdminData, AuthUser, UserRole } from './types';
 
 interface ClientCompanyDetail extends Company {
   ownerContact: string;
-  monthlyFee: number; // Honorários cobrados pela agência
-  monthlyAdBudget: number; // Teto de verba de anúncios estipulado
+  monthlyFee: number;
+  monthlyAdBudget: number;
   status: 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED';
-  clientPortalAccess: boolean; // Se o cliente tem acesso ao portal
+  clientPortalAccess: boolean;
   clientUserEmail: string;
 }
 
+// Contas cadastradas para login
+const DEMO_USERS = [
+  {
+    email: 'admin@socialpulse.com.br',
+    password: 'admin',
+    user: {
+      id: 'usr-admin',
+      name: 'Cristhian Sancore',
+      email: 'admin@socialpulse.com.br',
+      role: 'SUPER_ADMIN' as UserRole
+    }
+  },
+  {
+    email: 'carlos@alphadigital.com.br',
+    password: '123',
+    user: {
+      id: 'usr-agency',
+      name: 'Carlos Mendonça',
+      email: 'carlos@alphadigital.com.br',
+      role: 'AGENCY_ADMIN' as UserRole,
+      agencyName: 'Agência Alpha Digital'
+    }
+  },
+  {
+    email: 'fernanda@modaexpress.com.br',
+    password: '123',
+    user: {
+      id: 'usr-client',
+      name: 'Fernanda Rocha',
+      email: 'fernanda@modaexpress.com.br',
+      role: 'CLIENT_VIEWER' as UserRole,
+      companyId: 'comp-1'
+    }
+  }
+];
+
 export default function App() {
+  // Autenticação
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    const saved = localStorage.getItem('socialpulse_auth_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'clients' | 'integrations' | 'admin'>('dashboard');
   
-  // Lista de Empresas Clientes da Agência com controle completo
+  // Lista de Empresas Clientes
   const [clientCompanies, setClientCompanies] = useState<ClientCompanyDetail[]>([
     {
       id: 'comp-1',
@@ -80,7 +129,7 @@ export default function App() {
       monthlyFee: 3500.0,
       monthlyAdBudget: 15000.0,
       status: 'PAST_DUE',
-      clientPortalAccess: false // Acesso suspenso por honorários em atraso
+      clientPortalAccess: false
     }
   ]);
 
@@ -306,6 +355,46 @@ export default function App() {
     }
   ]);
 
+  // Se o usuário for cliente com empresa específica, forçar a seleção da empresa dele
+  useEffect(() => {
+    if (currentUser?.role === 'CLIENT_VIEWER' && currentUser.companyId) {
+      setSelectedCompanyId(currentUser.companyId);
+    }
+  }, [currentUser]);
+
+  // Login Handler
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+
+    const matched = DEMO_USERS.find(
+      u => u.email.toLowerCase() === loginEmail.trim().toLowerCase() && u.password === loginPassword
+    );
+
+    if (matched) {
+      setCurrentUser(matched.user);
+      localStorage.setItem('socialpulse_auth_user', JSON.stringify(matched.user));
+    } else {
+      setLoginError('E-mail ou senha incorretos. Use uma das opções de acesso rápido abaixo para testar.');
+    }
+  };
+
+  // Login Rápido (Demo)
+  const quickLogin = (index: number) => {
+    const selected = DEMO_USERS[index];
+    setLoginEmail(selected.email);
+    setLoginPassword(selected.password);
+    setCurrentUser(selected.user);
+    localStorage.setItem('socialpulse_auth_user', JSON.stringify(selected.user));
+  };
+
+  // Logout Handler
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('socialpulse_auth_user');
+    setActiveTab('dashboard');
+  };
+
   // Cálculos do Dashboard
   const currentCompany = clientCompanies.find(c => c.id === selectedCompanyId) || clientCompanies[0];
   const activeCampaigns = campaigns.filter(c => c.companyId === selectedCompanyId);
@@ -315,22 +404,21 @@ export default function App() {
   const avgCpa = totalConversions > 0 ? totalSpend / totalConversions : 0;
   const totalRevenue = activeCampaigns.reduce((acc, c) => acc + c.spendToday * c.roas, 0);
   const overallRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
-
-  // Total de Honorários que a Agência recebe dos clientes
   const totalAgencyRevenue = clientCompanies.reduce((acc, c) => acc + c.monthlyFee, 0);
 
   // Ações de Campanha
   const toggleCampaignStatus = (id: string) => {
+    if (currentUser?.role === 'CLIENT_VIEWER') return;
     setCampaigns(prev =>
       prev.map(c => (c.id === id ? { ...c, status: c.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' } : c))
     );
   };
 
   const toggleRule = (id: string) => {
+    if (currentUser?.role === 'CLIENT_VIEWER') return;
     setRules(prev => prev.map(r => (r.id === id ? { ...r, isActive: !r.isActive } : r)));
   };
 
-  // Alternar Acesso do Cliente ao Portal (Bloquear / Liberar)
   const toggleClientPortalAccess = (companyId: string) => {
     setClientCompanies(prev =>
       prev.map(c => {
@@ -342,7 +430,6 @@ export default function App() {
     );
   };
 
-  // Alternar Status de Pagamento do Cliente da Agência
   const toggleClientPaymentStatus = (companyId: string) => {
     setClientCompanies(prev =>
       prev.map(c => {
@@ -355,7 +442,6 @@ export default function App() {
     );
   };
 
-  // Enviar Mensagem no Inbox
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
@@ -417,18 +503,164 @@ export default function App() {
     );
   };
 
+  // =========================================================================
+  // SE NÃO ESTIVER AUTENTICADO: TELA DE LOGIN PROFISSIONAL
+  // =========================================================================
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden font-['Plus_Jakarta_Sans',sans-serif]">
+        {/* Glow Effects */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-emerald-500/10 blur-[130px] rounded-full pointer-events-none"></div>
+        <div className="absolute bottom-10 right-10 w-[400px] h-[300px] bg-teal-500/10 blur-[120px] rounded-full pointer-events-none"></div>
+
+        <div className="w-full max-w-md relative z-10 space-y-6">
+          {/* Logo & Headline */}
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center font-black text-slate-950 text-2xl shadow-xl shadow-emerald-500/30">
+              S
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-white">SocialPulse</h1>
+            <p className="text-xs text-slate-400">
+              Plataforma de Tráfego Pago, Automação & Atendimento Multicanal
+            </p>
+          </div>
+
+          {/* Card de Login */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
+            <div>
+              <h2 className="text-lg font-bold text-slate-100">Acesse sua conta</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Entre com seu e-mail e senha cadastrados</p>
+            </div>
+
+            {loginError && (
+              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800/60 text-xs text-rose-300 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  E-mail de Acesso
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                  <input
+                    type="email"
+                    required
+                    value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)}
+                    placeholder="seu.email@exemplo.com.br"
+                    className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Senha
+                  </label>
+                  <a href="#" className="text-[11px] text-emerald-400 hover:underline">
+                    Esqueceu?
+                  </a>
+                </div>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    required
+                    value={loginPassword}
+                    onChange={e => setLoginPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+              >
+                Entrar no Painel <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+
+            {/* Separador */}
+            <div className="relative flex items-center justify-center pt-2">
+              <div className="border-t border-slate-800 w-full"></div>
+              <span className="bg-slate-900 px-3 text-[10px] uppercase font-bold text-slate-500 shrink-0">
+                Acesso Rápido de Teste
+              </span>
+            </div>
+
+            {/* Botões de Acesso Rápido */}
+            <div className="space-y-2">
+              <button
+                onClick={() => quickLogin(0)}
+                className="w-full text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 hover:border-amber-500/40 transition-all flex items-center justify-between"
+              >
+                <div>
+                  <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                    <Crown className="w-3.5 h-3.5" /> Super Admin (Você)
+                  </div>
+                  <div className="text-[10px] text-slate-400">admin@socialpulse.com.br (Controle Total & SaaS)</div>
+                </div>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded">Entrar</span>
+              </button>
+
+              <button
+                onClick={() => quickLogin(1)}
+                className="w-full text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/40 transition-all flex items-center justify-between"
+              >
+                <div>
+                  <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5" /> Gestor de Agência
+                  </div>
+                  <div className="text-[10px] text-slate-400">carlos@alphadigital.com.br (Multi-Empresas)</div>
+                </div>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded">Entrar</span>
+              </button>
+
+              <button
+                onClick={() => quickLogin(2)}
+                className="w-full text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 hover:border-teal-500/40 transition-all flex items-center justify-between"
+              >
+                <div>
+                  <div className="text-xs font-bold text-teal-400 flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5" /> Cliente Final (Portal)
+                  </div>
+                  <div className="text-[10px] text-slate-400">fernanda@modaexpress.com.br (Modo Leitura)</div>
+                </div>
+                <span className="text-[10px] bg-teal-500/20 text-teal-300 font-bold px-2 py-0.5 rounded">Entrar</span>
+              </button>
+            </div>
+          </div>
+
+          <p className="text-center text-[11px] text-slate-500">
+            Ambiente seguro protegido por criptografia SSL • SocialPulse © 2026
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // SE ESTIVER AUTENTICADO: PAINEL COMPLETO
+  // =========================================================================
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Top Header */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg shadow-emerald-500/20">
-              N
+              S
             </div>
             <div>
               <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                NexusAds
+                SocialPulse
               </span>
               <span className="text-[10px] ml-1.5 px-2 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 PRO PLATFORM
@@ -436,41 +668,76 @@ export default function App() {
             </div>
           </div>
 
-          {/* Seletor Rápido de Empresa (Multi-Empresa) */}
-          <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-1.5">
-            <Building2 className="w-4 h-4 text-emerald-400" />
-            <select
-              value={selectedCompanyId}
-              onChange={e => setSelectedCompanyId(e.target.value)}
-              className="bg-transparent text-sm font-medium text-slate-200 outline-none cursor-pointer pr-2"
-            >
-              {clientCompanies.map(comp => (
-                <option key={comp.id} value={comp.id} className="bg-slate-900 text-slate-100">
-                  {comp.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Seletor Rápido de Empresa (Desabilitado se for cliente com empresa fixa) */}
+          {currentUser.role !== 'CLIENT_VIEWER' ? (
+            <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-1.5">
+              <Building2 className="w-4 h-4 text-emerald-400" />
+              <select
+                value={selectedCompanyId}
+                onChange={e => setSelectedCompanyId(e.target.value)}
+                className="bg-transparent text-sm font-medium text-slate-200 outline-none cursor-pointer pr-2"
+              >
+                {clientCompanies.map(comp => (
+                  <option key={comp.id} value={comp.id} className="bg-slate-900 text-slate-100">
+                    {comp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-300 font-medium">
+              <Building2 className="w-3.5 h-3.5 text-teal-400" />
+              <span>{currentCompany.name} (Modo Relatório)</span>
+            </div>
+          )}
         </div>
 
-        {/* Piloto Automático Status & Acesso Super Admin */}
+        {/* Informações do Usuário & Ações */}
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 bg-emerald-950/40 border border-emerald-600/30 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Piloto Automático: Ativo (24/7)
-          </div>
+          {/* Badge de Piloto Automático */}
+          {currentUser.role !== 'CLIENT_VIEWER' && (
+            <div className="hidden sm:flex items-center gap-2 bg-emerald-950/40 border border-emerald-600/30 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Piloto Automático: Ativo (24/7)
+            </div>
+          )}
 
-          <button
-            onClick={() => setActiveTab(activeTab === 'admin' ? 'dashboard' : 'admin')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'admin'
-                ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
-                : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30'
-            }`}
-          >
-            <Crown className="w-3.5 h-3.5" />
-            {activeTab === 'admin' ? 'Voltar ao Tráfego' : 'Painel do Dono do SaaS'}
-          </button>
+          {/* Botão Dono do SaaS (Apenas para Super Admin) */}
+          {currentUser.role === 'SUPER_ADMIN' && (
+            <button
+              onClick={() => setActiveTab(activeTab === 'admin' ? 'dashboard' : 'admin')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'admin'
+                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30'
+              }`}
+            >
+              <Crown className="w-3.5 h-3.5" />
+              {activeTab === 'admin' ? 'Voltar ao Tráfego' : 'Painel do Dono do SaaS'}
+            </button>
+          )}
+
+          {/* Usuário Logado & Logout */}
+          <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
+            <div className="text-right hidden md:block">
+              <div className="text-xs font-bold text-slate-200">{currentUser.name}</div>
+              <div className="text-[10px] text-slate-400">
+                {currentUser.role === 'SUPER_ADMIN'
+                  ? '👑 Super Admin'
+                  : currentUser.role === 'AGENCY_ADMIN'
+                  ? `🏢 ${currentUser.agencyName || 'Agência'}`
+                  : '👁️ Portal do Cliente'}
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              title="Sair da Conta"
+              className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 hover:text-rose-400 text-slate-400 border border-slate-700 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -487,71 +754,79 @@ export default function App() {
           <BarChart3 className="w-4 h-4" />
           Dashboard Geral
         </button>
-        <button
-          onClick={() => setActiveTab('campaigns')}
-          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
-            activeTab === 'campaigns'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          Gestor de Campanhas
-          <span className="ml-1 text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-full">
-            {activeCampaigns.length}
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('autopilot')}
-          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
-            activeTab === 'autopilot'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Zap className="w-4 h-4" />
-          Piloto Automático
-          <span className="ml-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">
-            Ativo
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('inbox')}
-          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
-            activeTab === 'inbox'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Caixa de Entrada & IA
-        </button>
-        {/* NOVA ABA: GESTÃO DE CLIENTES DA AGÊNCIA */}
-        <button
-          onClick={() => setActiveTab('clients')}
-          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
-            activeTab === 'clients'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          Meus Clientes & Acessos
-          <span className="ml-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">
-            {clientCompanies.length} Clientes
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('integrations')}
-          className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
-            activeTab === 'integrations'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Share2 className="w-4 h-4" />
-          Conexões & Redes
-        </button>
+
+        {currentUser.role !== 'CLIENT_VIEWER' && (
+          <>
+            <button
+              onClick={() => setActiveTab('campaigns')}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
+                activeTab === 'campaigns'
+                  ? 'border-emerald-500 text-emerald-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              Gestor de Campanhas
+              <span className="ml-1 text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-full">
+                {activeCampaigns.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('autopilot')}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
+                activeTab === 'autopilot'
+                  ? 'border-emerald-500 text-emerald-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              Piloto Automático
+              <span className="ml-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">
+                Ativo
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('inbox')}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
+                activeTab === 'inbox'
+                  ? 'border-emerald-500 text-emerald-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Caixa de Entrada & IA
+            </button>
+
+            <button
+              onClick={() => setActiveTab('clients')}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
+                activeTab === 'clients'
+                  ? 'border-emerald-500 text-emerald-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              Meus Clientes & Acessos
+              <span className="ml-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">
+                {clientCompanies.length} Clientes
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('integrations')}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 font-semibold transition-all ${
+                activeTab === 'integrations'
+                  ? 'border-emerald-500 text-emerald-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Share2 className="w-4 h-4" />
+              Conexões & Redes
+            </button>
+          </>
+        )}
       </nav>
 
       {/* Conteúdo Principal */}
@@ -568,7 +843,7 @@ export default function App() {
                   Visão Geral: {currentCompany.name}
                 </h1>
                 <p className="text-xs text-slate-400 mt-1">
-                  Nicho: <span className="text-emerald-400 font-semibold">{currentCompany.niche}</span> • CNPJ: {currentCompany.document} • Sincronizado agora
+                  Nicho: <span className="text-emerald-400 font-semibold">{currentCompany.niche}</span> • CNPJ: {currentCompany.document} • Sincronizado em tempo real
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -723,7 +998,7 @@ export default function App() {
         {/* ======================================================== */}
         {/* ABA: MEUS CLIENTES & ACESSOS (CONTROLE DA AGÊNCIA)       */}
         {/* ======================================================== */}
-        {activeTab === 'clients' && (
+        {activeTab === 'clients' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/30 border border-emerald-500/30 p-6 rounded-2xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -863,45 +1138,13 @@ export default function App() {
                 </table>
               </div>
             </div>
-
-            {/* Recursos de White-Label & Relatórios para Clientes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-emerald-400" />
-                  <h4 className="font-bold text-sm text-slate-200">Portal do Cliente (Somente Leitura)</h4>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  O cliente recebe um link exclusivo onde ele visualiza apenas os resultados: faturamento gerado, ROAS e conversões, sem permissão para mexer em orçamentos ou pausar anúncios acidentalmente.
-                </p>
-                <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-xs font-mono text-emerald-300 flex items-center justify-between">
-                  <span>https://app.suaagencia.com.br/portal/{selectedCompanyId}</span>
-                  <button className="text-[10px] bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded">
-                    Copiar Link
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-teal-400" />
-                  <h4 className="font-bold text-sm text-slate-200">Relatório Automático via WhatsApp</h4>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Todo domingo às 20h ou fim de mês, o sistema gera um PDF executivo com a sua logomarca e envia no WhatsApp do cliente com o resumo do ROI gerado.
-                </p>
-                <button className="text-xs font-bold bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/30 px-3 py-2 rounded-xl transition-all">
-                  Configurar Envio Automático
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
         {/* ======================================================== */}
         {/* ABA 2: GESTOR DE CAMPANHAS                               */}
         {/* ======================================================== */}
-        {activeTab === 'campaigns' && (
+        {activeTab === 'campaigns' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -1011,7 +1254,7 @@ export default function App() {
         {/* ======================================================== */}
         {/* ABA 3: PILOTO AUTOMÁTICO                                 */}
         {/* ======================================================== */}
-        {activeTab === 'autopilot' && (
+        {activeTab === 'autopilot' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -1074,7 +1317,7 @@ export default function App() {
         {/* ======================================================== */}
         {/* ABA 4: CAIXA DE ENTRADA & IA                             */}
         {/* ======================================================== */}
-        {activeTab === 'inbox' && (
+        {activeTab === 'inbox' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -1096,9 +1339,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Layout de Chat (2 Colunas) */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl grid grid-cols-1 md:grid-cols-3 min-h-[520px] overflow-hidden shadow-xl">
-              {/* Lista de Conversas */}
               <div className="border-r border-slate-800 divide-y divide-slate-800/80 overflow-y-auto">
                 {conversations.map(conv => (
                   <div
@@ -1138,7 +1379,6 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Janela de Mensagens */}
               <div className="md:col-span-2 flex flex-col justify-between bg-slate-950/40">
                 <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
                   <div>
@@ -1207,7 +1447,7 @@ export default function App() {
         {/* ======================================================== */}
         {/* ABA 5: CONEXÕES & REDES SOCIAIS                          */}
         {/* ======================================================== */}
-        {activeTab === 'integrations' && (
+        {activeTab === 'integrations' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-slate-100">Conexões com as Plataformas de Anúncios</h2>
@@ -1292,7 +1532,7 @@ export default function App() {
         {/* ======================================================== */}
         {/* ABA 6: SUPER ADMIN (PAINEL DO DONO DO SAAS)              */}
         {/* ======================================================== */}
-        {activeTab === 'admin' && (
+        {activeTab === 'admin' && currentUser.role === 'SUPER_ADMIN' && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/20 border border-amber-500/30 p-6 rounded-2xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1427,7 +1667,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950 text-slate-500 px-6 py-4 text-xs text-center">
-        NexusAds Platform • Gestão Unificada de Tráfego Pago & Autoatendimento • Arquitetura Multi-Tenant para Agências
+        SocialPulse Platform • Gestão Unificada de Tráfego Pago & Autoatendimento • Arquitetura Multi-Tenant
       </footer>
     </div>
   );

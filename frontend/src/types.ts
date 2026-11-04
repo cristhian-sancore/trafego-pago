@@ -1,5 +1,16 @@
 export type Platform = 'META' | 'GOOGLE' | 'TIKTOK' | 'YOUTUBE' | 'WHATSAPP' | 'LINKEDIN';
 
+export type UserRole = 'SUPER_ADMIN' | 'AGENCY_ADMIN' | 'CLIENT_VIEWER';
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  agencyName?: string;
+  companyId?: string;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -77,4 +88,3 @@ export interface SuperAdminData {
   totalManagedCompanies: number;
   pendingInvoices: number;
 }
-
