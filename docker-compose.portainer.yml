@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: trafego_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: trafegouser
+      POSTGRES_PASSWORD: trafegosecret2026_db
+      POSTGRES_DB: trafegodb
+    volumes:
+      - trafego_pgdata:/var/lib/postgresql/data
+    networks:
+      rede:
+        aliases:
+          - trafego_postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trafegouser -d trafegodb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ghcr.io/cristhian-sancore/trafego-pago-backend:latest
+    container_name: trafego_backend
+    restart: always
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://trafegouser:trafegosecret2026_db@trafego_postgres:5432/trafegodb?schema=public
+      - JWT_SECRET=trafego_pago_master_jwt_secret_token_2026
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      rede:
+        aliases:
+          - backend
+          - trafego_backend
+          - trafego-backend
+
+  frontend:
+    image: ghcr.io/cristhian-sancore/trafego-pago-frontend:latest
+    container_name: trafego_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      rede:
+        aliases:
+          - frontend
+          - trafego_frontend
+          - trafego-frontend
+          - trafego
+
+volumes:
+  trafego_pgdata:
+    name: trafego_pgdata
+
+networks:
+  rede:
+    external: true
+    name: rede

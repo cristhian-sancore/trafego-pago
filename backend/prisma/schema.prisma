@@ -1,0 +1,238 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  AGENCY_ADMIN
+  AGENCY_MEMBER
+  CLIENT_VIEWER
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+}
+
+enum PlatformType {
+  META
+  GOOGLE
+  TIKTOK
+  LINKEDIN
+  KWAI
+  PINTEREST
+}
+
+enum AutomationType {
+  STOP_LOSS_CPA
+  STOP_LOSS_SPEND
+  AUTO_SCALE_ROAS
+  CREATIVE_FATIGUE
+  REBALANCE_BUDGET
+}
+
+enum RuleAction {
+  PAUSE_CAMPAIGN
+  PAUSE_ADSET
+  PAUSE_AD
+  INCREASE_BUDGET
+  DECREASE_BUDGET
+  SEND_NOTIFICATION
+}
+
+enum MessageChannel {
+  WHATSAPP
+  INSTAGRAM_DM
+  INSTAGRAM_COMMENT
+  FACEBOOK_MESSENGER
+  TIKTOK_DM
+}
+
+// 👑 Super Admin & Gestores de Agência
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role      @default(AGENCY_ADMIN)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  agencyId     String?
+  agency       Agency?   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+}
+
+// 🏢 Agência Assinante (Seu cliente que revende o painel)
+model Agency {
+  id             String         @id @default(uuid())
+  name           String
+  slug           String         @unique
+  logoUrl        String?
+  primaryColor   String?        @default("#3b82f6")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  users          User[]
+  companies      Company[]
+  subscription   Subscription?
+}
+
+// 💳 Planos do SaaS (Configurados pelo Super Admin)
+model Plan {
+  id              String         @id @default(uuid())
+  name            String         // Ex: Starter, Pro, Scale
+  description     String?
+  monthlyPrice    Float          // Preço em Reais
+  maxCompanies    Int            @default(3)
+  allowAutopilot  Boolean        @default(true)
+  allowInboxAi    Boolean        @default(false)
+  allowWhiteLabel Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  subscriptions   Subscription[]
+}
+
+// 📄 Assinatura da Agência
+model Subscription {
+  id               String             @id @default(uuid())
+  agencyId         String             @unique
+  agency           Agency             @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  planId           String
+  plan             Plan               @relation(fields: [planId], references: [id])
+  status           SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd DateTime
+  gatewayCustomer  String?            // ID do cliente no Asaas/Stripe/MercadoPago
+  gatewaySubId     String?            // ID da assinatura no gateway
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+// 📦 Empresas / Clientes Gerenciados pela Agência
+model Company {
+  id              String            @id @default(uuid())
+  agencyId        String
+  agency          Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  name            String
+  documentNumber  String?           // CNPJ ou CPF
+  niche           String?           // Ex: E-commerce, Imobiliária, Clínica
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  adAccounts      AdAccount[]
+  campaigns       Campaign[]
+  automationRules AutomationRule[]
+  conversations   Conversation[]
+  aiAgentConfig   AiAgentConfig?
+}
+
+// 🔗 Contas de Anúncios Conectadas (Meta, Google, TikTok, etc.)
+model AdAccount {
+  id             String       @id @default(uuid())
+  companyId      String
+  company        Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  platform       PlatformType
+  externalId     String       // ID da conta de anúncio na plataforma
+  accountName    String
+  accessToken    String       // Token encriptado
+  refreshToken   String?
+  expiresAt      DateTime?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  campaigns      Campaign[]
+}
+
+// 📊 Campanhas Sincronizadas
+model Campaign {
+  id             String         @id @default(uuid())
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  adAccountId    String
+  adAccount      AdAccount      @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  externalId     String         // ID na Meta/Google
+  name           String
+  status         String         // ACTIVE, PAUSED, ARCHIVED
+  objective      String?
+  dailyBudget    Float          @default(0)
+  spendToday     Float          @default(0)
+  impressions    Int            @default(0)
+  clicks         Int            @default(0)
+  leads          Int            @default(0)
+  conversions    Int            @default(0)
+  cpa            Float          @default(0)
+  roas           Float          @default(0)
+  lastSyncAt     DateTime       @default(now())
+}
+
+// 🤖 Regras do Piloto Automático
+model AutomationRule {
+  id             String          @id @default(uuid())
+  companyId      String
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  type           AutomationType
+  conditionField String          // 'cpa', 'spendToday', 'roas', 'frequency'
+  operator       String          // 'GREATER_THAN', 'LESS_THAN'
+  thresholdValue Float
+  action         RuleAction
+  actionValue    Float?          // Ex: 15% de aumento
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  logs           AutomationLog[]
+}
+
+model AutomationLog {
+  id             String         @id @default(uuid())
+  ruleId         String
+  rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  campaignName   String
+  message        String
+  triggeredAt    DateTime       @default(now())
+}
+
+// 💬 Caixa de Entrada Unificada (Inbox)
+model Conversation {
+  id             String         @id @default(uuid())
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  channel        MessageChannel
+  externalChatId String         // Número de WhatsApp ou ID do Instagram/TikTok
+  contactName    String
+  contactPhone   String?
+  unreadCount    Int            @default(0)
+  lastMessage    String?
+  updatedAt      DateTime       @updatedAt
+
+  messages       Message[]
+}
+
+model Message {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType     String         // 'CUSTOMER', 'AGENT', 'AI_BOT'
+  text           String
+  createdAt      DateTime       @default(now())
+}
+
+// 🧠 Atendente com IA para Caixa de Entrada
+model AiAgentConfig {
+  id             String    @id @default(uuid())
+  companyId      String    @unique
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  isEnabled      Boolean   @default(true)
+  businessName   String
+  businessPrompt String    // Instruções de atendimento da empresa
+  productCatalog String?   // Catálogo, preços e links de checkout
+  handoffPhone   String?   // WhatsApp do atendente humano para transbordo
+  updatedAt      DateTime  @updatedAt
+}
+
