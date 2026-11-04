@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -10,12 +12,49 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-const EVOLUTION_URL = process.env.EVOLUTION_API_URL || 'http://evolution_api:8080';
-const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '87a0a57f642e31a529b0a0a2764f8a41';
+// Localizador de arquivo de persistência de configurações de API (.acesso/api_config.json)
+function getApiConfigFile(): string {
+  const possiblePaths = [
+    path.resolve(process.cwd(), '../.acesso/api_config.json'),
+    path.resolve(process.cwd(), '.acesso/api_config.json'),
+    path.resolve(process.cwd(), 'api_config.json'),
+    '/app/.acesso/api_config.json'
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return possiblePaths[0];
+}
 
-const META_APP_ID = process.env.META_APP_ID || '';
-const META_APP_SECRET = process.env.META_APP_SECRET || '';
-const APP_URL = process.env.APP_URL || 'https://socialpulse.cristhiansancore.com.br';
+// Configurações Mestres das APIs (configuradas exclusivamente pelo Admin no painel)
+export const masterApiConfig = {
+  metaAppId: process.env.META_APP_ID || '',
+  metaAppSecret: process.env.META_APP_SECRET || '',
+  appUrl: process.env.APP_URL || 'https://socialpulse.cristhiansancore.com.br',
+  metaWebhookToken: process.env.META_WEBHOOK_TOKEN || 'trafego_pago_meta_webhook_2026',
+  evolutionApiUrl: process.env.EVOLUTION_API_URL || 'https://api.cristhiansancore.com.br',
+  evolutionApiKey: process.env.EVOLUTION_API_KEY || '87a0a57f642e31a529b0a0a2764f8a41',
+  googleAdsClientId: process.env.GOOGLE_ADS_CLIENT_ID || '',
+  googleAdsClientSecret: process.env.GOOGLE_ADS_CLIENT_SECRET || '',
+  tiktokAppId: process.env.TIKTOK_APP_ID || '',
+  tiktokAppSecret: process.env.TIKTOK_APP_SECRET || ''
+};
+
+// Tenta carregar configs salvas no disco
+try {
+  const configFile = getApiConfigFile();
+  if (fs.existsSync(configFile)) {
+    const raw = fs.readFileSync(configFile, 'utf-8');
+    const parsed = JSON.parse(raw);
+    Object.assign(masterApiConfig, parsed);
+    console.log(`✅ Configurações de API carregadas com sucesso de: ${configFile}`);
+  }
+} catch (e: any) {
+  console.log('Usando configuração padrão de variáveis de ambiente:', e.message);
+}
+
+const EVOLUTION_URL = () => masterApiConfig.evolutionApiUrl || 'https://api.cristhiansancore.com.br';
+const EVOLUTION_KEY = () => masterApiConfig.evolutionApiKey || '87a0a57f642e31a529b0a0a2764f8a41';
 
 // Base de Dados do Sistema
 export const db = {
@@ -365,8 +404,8 @@ export const db = {
 // Listar Instâncias da Evolution API
 app.get('/api/evolution/instances', async (req: Request, res: Response) => {
   try {
-    const response = await fetch(`${EVOLUTION_URL}/instance/fetchInstances`, {
-      headers: { apikey: EVOLUTION_KEY }
+    const response = await fetch(`${EVOLUTION_URL()}/instance/fetchInstances`, {
+      headers: { apikey: EVOLUTION_KEY() }
     });
     if (!response.ok) {
       return res.status(response.status).json({ error: 'Erro ao consultar Evolution API', details: await response.text() });
@@ -384,10 +423,10 @@ app.post('/api/evolution/create-instance', async (req: Request, res: Response) =
     const { instanceName } = req.body;
     if (!instanceName) return res.status(400).json({ error: 'instanceName é obrigatório' });
 
-    const response = await fetch(`${EVOLUTION_URL}/instance/create`, {
+    const response = await fetch(`${EVOLUTION_URL()}/instance/create`, {
       method: 'POST',
       headers: {
-        apikey: EVOLUTION_KEY,
+        apikey: EVOLUTION_KEY(),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -407,8 +446,8 @@ app.post('/api/evolution/create-instance', async (req: Request, res: Response) =
 app.get('/api/evolution/connect/:instance', async (req: Request, res: Response) => {
   try {
     const { instance } = req.params;
-    const response = await fetch(`${EVOLUTION_URL}/instance/connect/${instance}`, {
-      headers: { apikey: EVOLUTION_KEY }
+    const response = await fetch(`${EVOLUTION_URL()}/instance/connect/${instance}`, {
+      headers: { apikey: EVOLUTION_KEY() }
     });
     const data = await response.json();
     res.json({ success: true, connection: data });
@@ -426,10 +465,10 @@ app.post('/api/evolution/send-message', async (req: Request, res: Response) => {
     }
 
     const cleanNumber = number.replace(/\D/g, '');
-    const response = await fetch(`${EVOLUTION_URL}/message/sendText/${instance}`, {
+    const response = await fetch(`${EVOLUTION_URL()}/message/sendText/${instance}`, {
       method: 'POST',
       headers: {
-        apikey: EVOLUTION_KEY,
+        apikey: EVOLUTION_KEY(),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -535,23 +574,153 @@ app.patch('/api/connections/:id/toggle', (req: Request, res: Response) => {
 });
 
 // -------------------------------------------------------------
-// OAUTH 1-CLIQUE: META (FACEBOOK/INSTAGRAM) & GOOGLE ADS
+// CONFIGURAÇÕES GLOBAIS DE APIS (PAINEL DO SUPER ADMIN)
+// -------------------------------------------------------------
+
+// Retornar configurações de API atuais (com secrets protegidos)
+app.get('/api/admin/api-config', (req: Request, res: Response) => {
+  const metaCallbackUrl = `${masterApiConfig.appUrl}/api/oauth/meta/callback`;
+  res.json({
+    success: true,
+    config: {
+      metaAppId: masterApiConfig.metaAppId,
+      metaAppSecret: masterApiConfig.metaAppSecret ? '••••••••' + masterApiConfig.metaAppSecret.slice(-4) : '',
+      hasMetaSecret: Boolean(masterApiConfig.metaAppSecret),
+      appUrl: masterApiConfig.appUrl,
+      metaCallbackUrl,
+      metaWebhookToken: masterApiConfig.metaWebhookToken,
+      evolutionApiUrl: masterApiConfig.evolutionApiUrl,
+      evolutionApiKey: masterApiConfig.evolutionApiKey ? '••••••••' + masterApiConfig.evolutionApiKey.slice(-4) : '',
+      hasEvolutionKey: Boolean(masterApiConfig.evolutionApiKey),
+      googleAdsClientId: masterApiConfig.googleAdsClientId,
+      googleAdsClientSecret: masterApiConfig.googleAdsClientSecret ? '••••••••' + masterApiConfig.googleAdsClientSecret.slice(-4) : '',
+      tiktokAppId: masterApiConfig.tiktokAppId,
+      tiktokAppSecret: masterApiConfig.tiktokAppSecret ? '••••••••' + masterApiConfig.tiktokAppSecret.slice(-4) : '',
+      isMetaConfigured: Boolean(masterApiConfig.metaAppId && masterApiConfig.metaAppSecret),
+      isEvolutionConfigured: Boolean(masterApiConfig.evolutionApiUrl && masterApiConfig.evolutionApiKey)
+    }
+  });
+});
+
+// Salvar Configurações Mestres de APIs inseridas pelo Admin
+app.post('/api/admin/api-config', (req: Request, res: Response) => {
+  const {
+    metaAppId,
+    metaAppSecret,
+    appUrl,
+    metaWebhookToken,
+    evolutionApiUrl,
+    evolutionApiKey,
+    googleAdsClientId,
+    googleAdsClientSecret,
+    tiktokAppId,
+    tiktokAppSecret
+  } = req.body;
+
+  if (metaAppId !== undefined) masterApiConfig.metaAppId = String(metaAppId).trim();
+  if (metaAppSecret && !metaAppSecret.startsWith('••••')) masterApiConfig.metaAppSecret = String(metaAppSecret).trim();
+  if (appUrl !== undefined) masterApiConfig.appUrl = String(appUrl).trim().replace(/\/$/, '');
+  if (metaWebhookToken !== undefined) masterApiConfig.metaWebhookToken = String(metaWebhookToken).trim();
+  if (evolutionApiUrl !== undefined) masterApiConfig.evolutionApiUrl = String(evolutionApiUrl).trim().replace(/\/$/, '');
+  if (evolutionApiKey && !evolutionApiKey.startsWith('••••')) masterApiConfig.evolutionApiKey = String(evolutionApiKey).trim();
+  if (googleAdsClientId !== undefined) masterApiConfig.googleAdsClientId = String(googleAdsClientId).trim();
+  if (googleAdsClientSecret && !googleAdsClientSecret.startsWith('••••')) masterApiConfig.googleAdsClientSecret = String(googleAdsClientSecret).trim();
+  if (tiktokAppId !== undefined) masterApiConfig.tiktokAppId = String(tiktokAppId).trim();
+  if (tiktokAppSecret && !tiktokAppSecret.startsWith('••••')) masterApiConfig.tiktokAppSecret = String(tiktokAppSecret).trim();
+
+  // Persistir em .acesso/api_config.json
+  try {
+    const configFile = getApiConfigFile();
+    const dir = path.dirname(configFile);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(configFile, JSON.stringify({ ...masterApiConfig, updatedAt: new Date().toISOString() }, null, 2), 'utf-8');
+    console.log('✅ Arquivo api_config.json atualizado pelo Admin.');
+  } catch (err: any) {
+    console.error('Aviso ao salvar api_config.json:', err.message);
+  }
+
+  res.json({
+    success: true,
+    message: 'Configurações de APIs salvas com sucesso no painel!',
+    isMetaConfigured: Boolean(masterApiConfig.metaAppId && masterApiConfig.metaAppSecret),
+    metaCallbackUrl: `${masterApiConfig.appUrl}/api/oauth/meta/callback`
+  });
+});
+
+// Testar Chaves da Meta diretamente com a Graph API
+app.post('/api/admin/test-meta', async (req: Request, res: Response) => {
+  const appId = (req.body.metaAppId || masterApiConfig.metaAppId || '').trim();
+  let appSecret = (req.body.metaAppSecret || '').trim();
+  if (!appSecret || appSecret.startsWith('••••')) {
+    appSecret = masterApiConfig.metaAppSecret;
+  }
+
+  if (!appId || !appSecret) {
+    return res.status(400).json({
+      success: false,
+      error: 'É necessário preencher o Meta App ID e o Meta App Secret para realizar o teste.'
+    });
+  }
+
+  try {
+    const appToken = `${appId}|${appSecret}`;
+    const testUrl = `https://graph.facebook.com/v19.0/${appId}?fields=id,name,category,link&access_token=${appToken}`;
+    const response = await fetch(testUrl);
+    const data = (await response.json()) as any;
+
+    if (data.error) {
+      return res.status(400).json({
+        success: false,
+        error: `Meta Graph API retornou erro: ${data.error.message}`,
+        details: data.error
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `App Meta validado com sucesso! Aplicativo Oficial: "${data.name}" (ID: ${data.id})`,
+      app: data
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: `Falha na requisição para a Meta: ${err.message}`
+    });
+  }
+});
+
+// -------------------------------------------------------------
+// OAUTH 1-CLIQUE: META (FACEBOOK / INSTAGRAM / WHATSAPP ADS)
 // -------------------------------------------------------------
 
 // Retorna URL de autorização da Meta para login com Facebook
 app.get('/api/oauth/meta/url', (req: Request, res: Response) => {
   const { companyId } = req.query;
-  const redirectUri = `${APP_URL}/api/oauth/meta/callback`;
+  const redirectUri = `${masterApiConfig.appUrl}/api/oauth/meta/callback`;
 
-  if (!META_APP_ID) {
+  // Se o admin ainda não configurou as chaves reais da Meta, usa o modo de simulação instantânea
+  if (!masterApiConfig.metaAppId || !masterApiConfig.metaAppSecret) {
     return res.json({
       success: true,
       mode: 'instant',
-      message: 'Modo direto ativo'
+      message: 'Modo direto ativo. O admin pode configurar o App ID e Secret oficial na aba Admin para login nativo da Meta.'
     });
   }
 
-  const metaOAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=ads_management,ads_read,pages_read_engagement,pages_show_list,business_management&state=${companyId}&response_type=code`;
+  // Permissões necessárias para gestão de anúncios, leitura de métricas, páginas e WhatsApp
+  const scopes = [
+    'ads_management',
+    'ads_read',
+    'pages_read_engagement',
+    'pages_show_list',
+    'business_management',
+    'whatsapp_business_management',
+    'whatsapp_business_messaging',
+    'instagram_basic',
+    'instagram_manage_messages'
+  ].join(',');
+
+  const metaOAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${masterApiConfig.metaAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${companyId}&response_type=code`;
 
   res.json({
     success: true,
@@ -564,22 +733,55 @@ app.get('/api/oauth/meta/url', (req: Request, res: Response) => {
 app.get('/api/oauth/meta/callback', async (req: Request, res: Response) => {
   const { code, state: companyId } = req.query;
   if (!code || !companyId) {
-    return res.redirect(`${APP_URL}/?oauth=error&msg=codigo_invalido`);
+    return res.redirect(`${masterApiConfig.appUrl}/?oauth=error&msg=codigo_invalido`);
   }
 
   try {
-    const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(`${APP_URL}/api/oauth/meta/callback`)}&client_secret=${META_APP_SECRET}&code=${code}`;
+    const redirectUri = `${masterApiConfig.appUrl}/api/oauth/meta/callback`;
+    const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${masterApiConfig.metaAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${masterApiConfig.metaAppSecret}&code=${code}`;
     const tokenRes = await fetch(tokenUrl);
     const tokenData = (await tokenRes.json()) as any;
 
     if (tokenData.access_token) {
-      const meAccountsUrl = `https://graph.facebook.com/v19.0/me/adaccounts?fields=name,account_id,id,account_status&access_token=${tokenData.access_token}`;
+      // 1. Trocar por token de longa duração (60 dias)
+      let longLivedToken = tokenData.access_token;
+      try {
+        const exchangeUrl = `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${masterApiConfig.metaAppId}&client_secret=${masterApiConfig.metaAppSecret}&fb_exchange_token=${tokenData.access_token}`;
+        const exRes = await fetch(exchangeUrl);
+        const exData = (await exRes.json()) as any;
+        if (exData.access_token) {
+          longLivedToken = exData.access_token;
+        }
+      } catch (e) {
+        console.warn('Não foi possível obter token de 60 dias, usando token padrão:', e);
+      }
+
+      // 2. Buscar contas de anúncio reais da conta do cliente
+      const meAccountsUrl = `https://graph.facebook.com/v19.0/me/adaccounts?fields=name,account_id,id,account_status,currency,amount_spent&access_token=${longLivedToken}`;
       const meAccountsRes = await fetch(meAccountsUrl);
       const meAccountsData = (await meAccountsRes.json()) as any;
 
-      const firstAdAccount = meAccountsData.data?.[0];
+      // 3. Buscar páginas e Instagram vinculados
+      let pageName = 'Página do Facebook';
+      let igUsername = '';
+      try {
+        const pagesUrl = `https://graph.facebook.com/v19.0/me/accounts?fields=name,id,instagram_business_account{id,username}&access_token=${longLivedToken}`;
+        const pagesRes = await fetch(pagesUrl);
+        const pagesData = (await pagesRes.json()) as any;
+        const firstPage = pagesData.data?.[0];
+        if (firstPage) {
+          pageName = firstPage.name;
+          igUsername = firstPage.instagram_business_account?.username || '';
+        }
+      } catch (e) {
+        console.warn('Erro ao consultar páginas da Meta:', e);
+      }
+
+      const availableAccounts = meAccountsData.data || [];
+      const firstAdAccount = availableAccounts[0];
       const accountId = firstAdAccount ? `act_${firstAdAccount.account_id}` : `act_meta_${Date.now()}`;
       const accountName = firstAdAccount ? firstAdAccount.name : 'Conta Meta Ads Conectada';
+      const currency = firstAdAccount?.currency || 'BRL';
 
       const existing = db.connections.find(c => c.companyId === companyId && c.platform === 'META');
       if (existing) {
@@ -588,6 +790,10 @@ app.get('/api/oauth/meta/callback', async (req: Request, res: Response) => {
         existing.accountName = accountName;
         existing.pixelOrTagId = 'pix_meta_auto';
         existing.updatedAt = 'Conectado via Facebook';
+        (existing as any).pageName = pageName;
+        (existing as any).instagramUsername = igUsername ? `@${igUsername}` : '';
+        (existing as any).currency = currency;
+        (existing as any).availableAccounts = availableAccounts;
       } else {
         db.connections.push({
           id: `conn-${Date.now()}`,
@@ -597,20 +803,28 @@ app.get('/api/oauth/meta/callback', async (req: Request, res: Response) => {
           accountName: accountName,
           accountId: accountId,
           pixelOrTagId: 'pix_meta_auto',
-          updatedAt: 'Conectado via Facebook'
+          updatedAt: 'Conectado via Facebook',
+          ...({
+            pageName,
+            instagramUsername: igUsername ? `@${igUsername}` : '',
+            currency,
+            availableAccounts
+          } as any)
         });
       }
 
-      return res.redirect(`${APP_URL}/?oauth=success&platform=META`);
+      return res.redirect(
+        `${masterApiConfig.appUrl}/?oauth=success&platform=META&accountName=${encodeURIComponent(accountName)}&accountId=${encodeURIComponent(accountId)}`
+      );
     }
 
-    return res.redirect(`${APP_URL}/?oauth=error&msg=falha_token`);
+    return res.redirect(`${masterApiConfig.appUrl}/?oauth=error&msg=falha_token`);
   } catch (err: any) {
-    return res.redirect(`${APP_URL}/?oauth=error&msg=${encodeURIComponent(err.message)}`);
+    return res.redirect(`${masterApiConfig.appUrl}/?oauth=error&msg=${encodeURIComponent(err.message)}`);
   }
 });
 
-// Conexão Instantânea com 1 Clique (Login Social Direto)
+// Conexão Instantânea com 1 Clique (Login Social Direto sem chaves pelo cliente)
 app.post('/api/oauth/instant-connect', (req: Request, res: Response) => {
   const { companyId, platform, userName } = req.body;
   if (!companyId || !platform) {
@@ -621,9 +835,20 @@ app.post('/api/oauth/instant-connect', (req: Request, res: Response) => {
   const accountPrefix = platform === 'META' ? 'act_' : platform === 'GOOGLE' ? 'aw_' : 'id_';
   const autoAccountId = `${accountPrefix}${Math.floor(100000000 + Math.random() * 900000000)}`;
   const autoPixelId = `pix_${Math.floor(100000000 + Math.random() * 900000000)}`;
-  const friendlyName = userName 
-    ? `${platform} Ads de ${userName}` 
-    : `Conta Oficial ${platform} Ads`;
+  const friendlyName = userName ? `${userName} - ${platform} Ads Oficial` : `Conta Oficial ${platform} Ads`;
+
+  const availableAccounts = [
+    { id: autoAccountId, name: friendlyName, currency: 'BRL', status: 'ACTIVE' },
+    { id: `${accountPrefix}${Math.floor(100000000 + Math.random() * 900000000)}`, name: `${userName || 'Empresa'} - Conta Reserva / Backup`, currency: 'BRL', status: 'ACTIVE' }
+  ];
+
+  const extraProps = {
+    pageName: userName ? `Página Oficial ${userName}` : 'Página Principal',
+    instagramUsername: userName ? `@${userName.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20)}` : '@conta_oficial',
+    whatsappNumber: '+55 (65) 99677-2226',
+    currency: 'BRL',
+    availableAccounts
+  };
 
   if (existing) {
     existing.connected = true;
@@ -631,6 +856,7 @@ app.post('/api/oauth/instant-connect', (req: Request, res: Response) => {
     existing.accountId = existing.accountId && existing.accountId.length > 5 ? existing.accountId : autoAccountId;
     existing.pixelOrTagId = existing.pixelOrTagId || autoPixelId;
     existing.updatedAt = 'Conectado com 1 Clique';
+    Object.assign(existing, extraProps);
     return res.json({ success: true, connection: existing, message: 'Conta conectada com sucesso!' });
   }
 
@@ -642,11 +868,22 @@ app.post('/api/oauth/instant-connect', (req: Request, res: Response) => {
     accountName: friendlyName,
     accountId: autoAccountId,
     pixelOrTagId: autoPixelId,
-    updatedAt: 'Conectado com 1 Clique'
+    updatedAt: 'Conectado com 1 Clique',
+    ...extraProps
   };
 
   db.connections.push(newConn);
   res.json({ success: true, connection: newConn, message: 'Conta conectada com sucesso!' });
+});
+
+// Desconectar Conta Social
+app.post('/api/oauth/disconnect', (req: Request, res: Response) => {
+  const { companyId, platform } = req.body;
+  const conn = db.connections.find(c => c.companyId === companyId && c.platform === platform);
+  if (!conn) return res.status(404).json({ error: 'Conexão não encontrada' });
+  conn.connected = false;
+  conn.updatedAt = 'Desconectado';
+  res.json({ success: true, connection: conn, message: 'Conta desconectada com sucesso.' });
 });
 
 // -------------------------------------------------------------
@@ -778,10 +1015,10 @@ app.post('/api/inbox/conversations/:id/messages', async (req: Request, res: Resp
         const comp = db.companies.find(cp => cp.id === conv.companyId);
         const inst = comp?.evolutionInstance || 'meu';
         const cleanNumber = conv.contactPhone.replace(/\D/g, '');
-        await fetch(`${EVOLUTION_URL}/message/sendText/${inst}`, {
+        await fetch(`${EVOLUTION_URL()}/message/sendText/${inst}`, {
           method: 'POST',
           headers: {
-            apikey: EVOLUTION_KEY,
+            apikey: EVOLUTION_KEY(),
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({

@@ -120,6 +120,29 @@ export interface NetworkConnection {
   pixelOrTagId?: string;
   accessToken?: string;
   updatedAt: string;
+  pageName?: string;
+  instagramUsername?: string;
+  whatsappNumber?: string;
+  currency?: string;
+  availableAccounts?: { id: string; name: string; currency?: string; status?: string }[];
+}
+
+export interface ApiMasterConfig {
+  metaAppId: string;
+  metaAppSecret: string;
+  hasMetaSecret: boolean;
+  appUrl: string;
+  metaCallbackUrl: string;
+  metaWebhookToken: string;
+  evolutionApiUrl: string;
+  evolutionApiKey: string;
+  hasEvolutionKey: boolean;
+  googleAdsClientId: string;
+  googleAdsClientSecret: string;
+  tiktokAppId: string;
+  tiktokAppSecret: string;
+  isMetaConfigured: boolean;
+  isEvolutionConfigured: boolean;
 }
 
 export interface UtmLink {
