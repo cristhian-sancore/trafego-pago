@@ -32,6 +32,8 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://trafegouser:trafegosecret2026_db@trafego_postgres:5432/trafegodb?schema=public
       - JWT_SECRET=trafego_pago_master_jwt_secret_token_2026
+      - EVOLUTION_API_URL=http://evolution_api:8080
+      - EVOLUTION_API_KEY=87a0a57f642e31a529b0a0a2764f8a41
     ports:
       - "3011:3001"
     depends_on:

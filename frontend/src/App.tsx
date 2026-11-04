@@ -701,6 +701,8 @@ export default function App() {
       if (!filteredConversations.some(c => c.id === activeConversationId)) {
         setActiveConversationId(filteredConversations[0].id);
       }
+    } else {
+      setActiveConversationId('');
     }
   }, [selectedCompanyId, filteredConversations]);
 
@@ -712,12 +714,12 @@ export default function App() {
   }, [currentUser]);
 
   // Métricas calculadas para a empresa ativa (incluindo vendas do WhatsApp!)
-  const totalSpend = filteredCampaigns.reduce((acc, c) => acc + c.spendToday, 0);
-  const totalCampaignRevenue = filteredCampaigns.reduce((acc, c) => acc + (c.spendToday * c.roas), 0);
-  const totalWhatsAppSalesRevenue = filteredSales.reduce((acc, s) => acc + s.amount, 0);
+  const totalSpend = filteredCampaigns.reduce((acc, c) => acc + Number(c.spendToday || 0), 0);
+  const totalCampaignRevenue = filteredCampaigns.reduce((acc, c) => acc + (Number(c.spendToday || 0) * Number(c.roas || 0)), 0);
+  const totalWhatsAppSalesRevenue = filteredSales.reduce((acc, s) => acc + Number(s.amount || 0), 0);
   const totalRevenue = totalCampaignRevenue + totalWhatsAppSalesRevenue;
   const overallRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
-  const totalConversions = filteredCampaigns.reduce((acc, c) => acc + c.conversions, 0) + filteredSales.length;
+  const totalConversions = filteredCampaigns.reduce((acc, c) => acc + Number(c.conversions || 0), 0) + filteredSales.length;
   const totalClicks = filteredCampaigns.reduce((acc, c) => acc + c.clicks, 0);
   const totalImpressions = filteredCampaigns.reduce((acc, c) => acc + c.impressions, 0);
   const avgCpa = totalConversions > 0 ? totalSpend / totalConversions : 0;
