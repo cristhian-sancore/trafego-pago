@@ -676,17 +676,15 @@ app.get('/api/oauth/meta/url', (req: Request, res: Response) => {
     });
   }
 
-  // Permissões necessárias para gestão de anúncios, leitura de métricas, páginas e WhatsApp
+  // Permissões aprovadas para gestão de anúncios, métricas de campanhas, páginas e leads
   const scopes = [
     'ads_management',
     'ads_read',
     'pages_read_engagement',
     'pages_show_list',
     'business_management',
-    'whatsapp_business_management',
-    'whatsapp_business_messaging',
-    'instagram_basic',
-    'instagram_manage_messages'
+    'leads_retrieval',
+    'public_profile'
   ].join(',');
 
   const metaOAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${masterApiConfig.metaAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${companyId}&response_type=code`;

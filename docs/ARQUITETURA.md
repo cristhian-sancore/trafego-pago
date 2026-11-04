@@ -38,3 +38,6 @@ O sistema já conta com `docker-compose.yml` e Dockerfiles otimizados:
 - Backend Node.js / TypeScript com Prisma.
 - Frontend React / Vite / Tailwind com Nginx Alpine de alta performance.
 
+
+## 5. Tutorial de Integração com Facebook (Meta)
+Para configurar e usar o login com Facebook, consulte o tutorial completo em [FACEBOOK_LOGIN_TUTORIAL.md](docs/FACEBOOK_LOGIN_TUTORIAL.md).
