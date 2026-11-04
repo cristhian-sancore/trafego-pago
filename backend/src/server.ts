@@ -30,6 +30,7 @@ function getApiConfigFile(): string {
 export const masterApiConfig = {
   metaAppId: process.env.META_APP_ID || '',
   metaAppSecret: process.env.META_APP_SECRET || '',
+  metaLongLivedToken: process.env.META_LONG_LIVED_TOKEN || '',
   appUrl: process.env.APP_URL || 'https://socialpulse.cristhiansancore.com.br',
   metaWebhookToken: process.env.META_WEBHOOK_TOKEN || 'trafego_pago_meta_webhook_2026',
   evolutionApiUrl: process.env.EVOLUTION_API_URL || 'https://api.cristhiansancore.com.br',
@@ -496,7 +497,7 @@ app.get('/api/connections/:companyId', (req: Request, res: Response) => {
 });
 
 app.post('/api/connections', (req: Request, res: Response) => {
-  const { companyId, platform, accountName, accountId, pixelOrTagId } = req.body;
+  const { companyId, platform, accountName, accountId, pixelOrTagId, accessToken } = req.body;
   const existing = db.connections.find(c => c.companyId === companyId && c.platform === platform);
 
   if (existing) {
@@ -504,6 +505,7 @@ app.post('/api/connections', (req: Request, res: Response) => {
     existing.accountName = accountName || existing.accountName;
     existing.accountId = accountId || existing.accountId;
     existing.pixelOrTagId = pixelOrTagId || existing.pixelOrTagId;
+    if (accessToken) (existing as any).accessToken = accessToken;
     existing.updatedAt = 'Agora';
     return res.json({ success: true, connection: existing });
   }
@@ -516,6 +518,7 @@ app.post('/api/connections', (req: Request, res: Response) => {
     accountName: accountName || `Conta ${platform}`,
     accountId: accountId || 'act_' + Math.floor(Math.random() * 100000000),
     pixelOrTagId: pixelOrTagId || 'pix_' + Math.floor(Math.random() * 100000000),
+    accessToken: accessToken || '',
     updatedAt: 'Agora'
   };
 
@@ -574,6 +577,7 @@ app.post('/api/admin/api-config', (req: Request, res: Response) => {
   const {
     metaAppId,
     metaAppSecret,
+    metaLongLivedToken,
     appUrl,
     metaWebhookToken,
     evolutionApiUrl,
@@ -586,6 +590,7 @@ app.post('/api/admin/api-config', (req: Request, res: Response) => {
 
   if (metaAppId !== undefined) masterApiConfig.metaAppId = String(metaAppId).trim();
   if (metaAppSecret && !metaAppSecret.startsWith('••••')) masterApiConfig.metaAppSecret = String(metaAppSecret).trim();
+  if (metaLongLivedToken !== undefined) (masterApiConfig as any).metaLongLivedToken = String(metaLongLivedToken).trim();
   if (appUrl !== undefined) masterApiConfig.appUrl = String(appUrl).trim().replace(/\/$/, '');
   if (metaWebhookToken !== undefined) masterApiConfig.metaWebhookToken = String(metaWebhookToken).trim();
   if (evolutionApiUrl !== undefined) masterApiConfig.evolutionApiUrl = String(evolutionApiUrl).trim().replace(/\/$/, '');
