@@ -100,21 +100,11 @@ const INITIAL_USERS: SystemUserRecord[] = [
     status: 'ACTIVE'
   },
   {
-    id: 'usr-agency',
-    name: 'Carlos Mendonça',
-    username: 'carlos_alpha',
-    password: '123',
-    phone: '(11) 98888-1234',
-    role: 'AGENCY_ADMIN',
-    status: 'ACTIVE',
-    agencyName: 'Agência Alpha Digital'
-  },
-  {
     id: 'usr-client',
-    name: 'Fernanda Rocha',
-    username: 'fernanda_moda',
+    name: 'Cristhian Sancore',
+    username: 'cristhian_sancore',
     password: '123',
-    phone: '(11) 97777-5678',
+    phone: '(65) 99677-2226',
     role: 'CLIENT_VIEWER',
     status: 'ACTIVE',
     companyId: 'comp-1'
@@ -124,46 +114,16 @@ const INITIAL_USERS: SystemUserRecord[] = [
 const INITIAL_COMPANIES: ClientCompanyDetail[] = [
   {
     id: 'comp-1',
-    name: 'Moda Express Brasil (E-commerce)',
-    niche: 'Moda Feminina & Roupas',
-    document: '42.981.234/0001-90',
-    ownerContact: 'Fernanda Rocha (CEO)',
+    name: 'Cristhian Sancore (RP Produções)',
+    niche: 'Produção Audiovisual & Eventos',
+    document: '',
+    ownerContact: 'Cristhian Sancore',
     whatsappContact: '+55 65 99677-2226',
-    monthlyFee: 2500.0,
-    monthlyAdBudget: 15000.0,
+    monthlyFee: 0,
+    monthlyAdBudget: 5000.0,
     status: 'ACTIVE',
     evolutionInstance: 'meu',
-    aiPrompt: 'Você é a Sofia, consultora de vendas da Moda Express Brasil. Responda educadamente sobre produtos, tamanhos, prazo de entrega e ofereça cupom FRETEGRATIS.',
-    aiAutoReply: true,
-    clientPortalAccess: true
-  },
-  {
-    id: 'comp-2',
-    name: 'Dr. Sorriso Odontologia Integrada',
-    niche: 'Clínica & Odontologia',
-    document: '31.123.876/0001-12',
-    ownerContact: 'Dr. Roberto Alves',
-    whatsappContact: '+55 11 98888-7777',
-    monthlyFee: 1800.0,
-    monthlyAdBudget: 8000.0,
-    status: 'ACTIVE',
-    evolutionInstance: 'teste',
-    aiPrompt: 'Você é a atendente virtual da clínica Dra. Sorriso. Agende consultas de avaliação para implantes e clareamento dental.',
-    aiAutoReply: true,
-    clientPortalAccess: true
-  },
-  {
-    id: 'comp-3',
-    name: 'Imobiliária Prime SP & Alphaville',
-    niche: 'Imóveis de Alto Padrão',
-    document: '18.456.980/0001-44',
-    ownerContact: 'Marcos Vinicius',
-    whatsappContact: '+55 11 97777-6666',
-    monthlyFee: 3500.0,
-    monthlyAdBudget: 25000.0,
-    status: 'ACTIVE',
-    evolutionInstance: 'meu',
-    aiPrompt: 'Você é o corretor virtual Prime. Qualifique o cliente quanto a faixa de preço (acima de R$ 1.5M) e agende visita.',
+    aiPrompt: 'Você é o assistente virtual da RP Produções e Cristhian Sancore. Responda educadamente aos clientes sobre serviços e orçamentos.',
     aiAutoReply: false,
     clientPortalAccess: true
   }
@@ -171,112 +131,130 @@ const INITIAL_COMPANIES: ClientCompanyDetail[] = [
 
 const INITIAL_CAMPAIGNS: Campaign[] = [
   {
-    id: 'camp-1',
+    id: '6682354418271',
     companyId: 'comp-1',
     platform: 'META',
-    name: '[ESCALA] Vestidos Verão - Conversão Direta',
-    objective: 'Vendas / Conversão',
-    status: 'ACTIVE',
-    dailyBudget: 250.0,
-    spendToday: 184.5,
-    impressions: 14200,
-    clicks: 520,
-    conversions: 18,
-    cpa: 10.25,
-    roas: 4.8,
-    autopilotStatus: 'Otimizado (ROAS Alto)',
-    adCopy: '✨ Nova coleção verão com 20% OFF e Frete Grátis acima de R$ 150!',
-    targetUrl: 'https://modaexpress.com.br/verao'
-  },
-  {
-    id: 'camp-2',
-    companyId: 'comp-1',
-    platform: 'TIKTOK',
-    name: '[UGC] Vídeo Viral Provador - Spark Ads',
-    objective: 'Engajamento & Tráfego',
-    status: 'ACTIVE',
-    dailyBudget: 120.0,
-    spendToday: 89.1,
-    impressions: 28900,
-    clicks: 980,
-    conversions: 12,
-    cpa: 7.42,
-    roas: 5.4,
-    autopilotStatus: 'Escalando Orçamento +15%',
-    adCopy: 'Meninas, olhem o caimento desse vestido! Link na bio com cupom.',
-    targetUrl: 'https://modaexpress.com.br/tiktok'
-  },
-  {
-    id: 'camp-3',
-    companyId: 'comp-1',
-    platform: 'GOOGLE',
-    name: '[PESQUISA] Fundo de Funil - Comprar Vestido Festa',
-    objective: 'Leads & Compras',
-    status: 'ACTIVE',
-    dailyBudget: 150.0,
-    spendToday: 145.0,
-    impressions: 3400,
-    clicks: 210,
-    conversions: 9,
-    cpa: 16.11,
-    roas: 3.2,
-    autopilotStatus: 'Dentro da Meta',
-    adCopy: 'Vestidos de Festa em Até 10x Sem Juros | Envio Imediato',
-    targetUrl: 'https://modaexpress.com.br/festa'
-  },
-  {
-    id: 'camp-4',
-    companyId: 'comp-1',
-    platform: 'WHATSAPP',
-    name: '[WHATSAPP] Atendimento VIP Promoção Frete Grátis',
-    objective: 'Mensagens no WhatsApp',
-    status: 'ACTIVE',
-    dailyBudget: 80.0,
-    spendToday: 55.0,
-    impressions: 4300,
-    clicks: 140,
-    conversions: 24,
-    cpa: 2.29,
-    roas: 0.0,
-    autopilotStatus: 'Excelente Taxa de Lead',
-    adCopy: 'Clique no botão e tire suas dúvidas no WhatsApp agora mesmo!',
-    targetUrl: 'https://wa.me/5565996772226'
-  },
-  {
-    id: 'camp-5',
-    companyId: 'comp-2',
-    platform: 'META',
-    name: '[INSTAGRAM] Implantes Dentários sem Dor - Agendamento',
-    objective: 'Mensagens no WhatsApp',
-    status: 'ACTIVE',
-    dailyBudget: 100.0,
-    spendToday: 78.4,
-    impressions: 5600,
-    clicks: 180,
+    name: 'Tailored messages campaign 7/2/2025 Campanha',
+    objective: 'Engajamento & Mensagens',
+    status: 'PAUSED',
+    dailyBudget: 50.0,
+    spendToday: 168.33,
+    impressions: 20787,
+    clicks: 245,
     conversions: 15,
-    cpa: 5.22,
-    roas: 6.8,
-    autopilotStatus: 'Alta Conversão de Agendamento',
-    adCopy: 'Recupere seu sorriso com segurança. Agende sua avaliação gratuita.',
-    targetUrl: 'https://wa.me/5511988887777'
+    cpa: 11.22,
+    roas: 0.0,
+    autopilotStatus: 'Pausado na Meta',
+    adCopy: 'Campanha oficial de mensagens sincronizada da Meta Ads',
+    targetUrl: ''
   },
   {
-    id: 'camp-6',
-    companyId: 'comp-3',
-    platform: 'GOOGLE',
-    name: '[PESQUISA] Mansões e Casas em Condomínio Alphaville',
-    objective: 'Leads Qualificados',
-    status: 'ACTIVE',
-    dailyBudget: 350.0,
-    spendToday: 210.0,
-    impressions: 1800,
-    clicks: 95,
-    conversions: 4,
-    cpa: 52.5,
-    roas: 8.5,
-    autopilotStatus: 'Lead de Alto Padrão',
-    adCopy: 'Casas Novas Alphaville 4 a 6 Suítes. Veja Fotos e Agende Visita.',
-    targetUrl: 'https://primeimoveis.com.br/alphaville'
+    id: '6664788480471',
+    companyId: 'comp-1',
+    platform: 'META',
+    name: 'campanha de Reconhecimento(deu mais de 30',
+    objective: 'Reconhecimento de Marca',
+    status: 'PAUSED',
+    dailyBudget: 50.0,
+    spendToday: 102.8,
+    impressions: 12300,
+    clicks: 180,
+    conversions: 0,
+    cpa: 0.0,
+    roas: 0.0,
+    autopilotStatus: 'Pausado na Meta',
+    adCopy: 'Campanha de reconhecimento sincronizada da Meta Ads',
+    targetUrl: ''
+  },
+  {
+    id: '6653634309271',
+    companyId: 'comp-1',
+    platform: 'META',
+    name: 'Nova campanha de Tráfego',
+    objective: 'Tráfego & Cliques',
+    status: 'PAUSED',
+    dailyBudget: 50.0,
+    spendToday: 37.46,
+    impressions: 9987,
+    clicks: 142,
+    conversions: 0,
+    cpa: 0.26,
+    roas: 0.0,
+    autopilotStatus: 'Pausado na Meta',
+    adCopy: 'Campanha de tráfego sincronizada da Meta Ads',
+    targetUrl: ''
+  },
+  {
+    id: '6652870197871',
+    companyId: 'comp-1',
+    platform: 'META',
+    name: 'Nova campanha de Reconhecimento-RP PRODUÇOES',
+    objective: 'Reconhecimento de Marca',
+    status: 'PAUSED',
+    dailyBudget: 50.0,
+    spendToday: 42.8,
+    impressions: 8520,
+    clicks: 110,
+    conversions: 0,
+    cpa: 0.0,
+    roas: 0.0,
+    autopilotStatus: 'Pausado na Meta',
+    adCopy: 'Campanha institucional RP Produções sincronizada da Meta Ads',
+    targetUrl: ''
+  },
+  {
+    id: '6652868858871',
+    companyId: 'comp-1',
+    platform: 'META',
+    name: 'Promovendo CS PRODUÇOES',
+    objective: 'Tráfego & Cliques',
+    status: 'PAUSED',
+    dailyBudget: 5.73,
+    spendToday: 16.5,
+    impressions: 1895,
+    clicks: 45,
+    conversions: 0,
+    cpa: 0.36,
+    roas: 0.0,
+    autopilotStatus: 'Pausado na Meta',
+    adCopy: 'Campanha promocional CS Produções sincronizada da Meta Ads',
+    targetUrl: ''
+  },
+  {
+    id: '6652858604871',
+    companyId: 'comp-1',
+    platform: 'META',
+    name: 'campanha de TRAFICO CULTO DE CELEBRAÇÃO',
+    objective: 'Tráfego & Cliques',
+    status: 'PAUSED',
+    dailyBudget: 50.0,
+    spendToday: 19.99,
+    impressions: 4366,
+    clicks: 64,
+    conversions: 0,
+    cpa: 0.31,
+    roas: 0.0,
+    autopilotStatus: 'Pausado na Meta',
+    adCopy: 'Campanha de tráfego culto de celebração sincronizada da Meta Ads',
+    targetUrl: ''
+  },
+  {
+    id: '6652856796471',
+    companyId: 'comp-1',
+    platform: 'META',
+    name: 'Nova campanha de Vendas',
+    objective: 'Vendas / Conversão',
+    status: 'PAUSED',
+    dailyBudget: 50.0,
+    spendToday: 57.0,
+    impressions: 11532,
+    clicks: 139,
+    conversions: 0,
+    cpa: 0.41,
+    roas: 0.0,
+    autopilotStatus: 'Pausado na Meta',
+    adCopy: 'Campanha de conversão e vendas sincronizada da Meta Ads',
+    targetUrl: ''
   }
 ];
 
@@ -284,169 +262,51 @@ const INITIAL_RULES: AutomationRule[] = [
   {
     id: 'rule-1',
     companyId: 'comp-1',
-    name: '🛡️ Stop-Loss: Pausar Anúncio se gastar R$ 40 sem venda',
+    name: '🛡️ Stop-Loss: Pausar Anúncio se gastar R$ 50 sem conversão',
     type: 'STOP_LOSS_SPEND',
     conditionField: 'spendToday',
     operator: 'GREATER_THAN',
-    thresholdValue: 40.0,
+    thresholdValue: 50.0,
     action: 'PAUSE_AD',
     actionValue: null,
     isActive: true,
-    lastTriggered: 'Hoje às 10:14'
+    lastTriggered: 'Monitorando'
   },
   {
     id: 'rule-2',
     companyId: 'comp-1',
-    name: '🚀 Escala Inteligente: Se ROAS > 4.0x aumentar 15% verba',
+    name: '🚀 Escala Inteligente: Se ROAS > 3.0x aumentar 15% de verba',
     type: 'AUTO_SCALE_ROAS',
     conditionField: 'roas',
     operator: 'GREATER_THAN',
-    thresholdValue: 4.0,
+    thresholdValue: 3.0,
     action: 'INCREASE_BUDGET',
     actionValue: 15,
     isActive: true,
-    lastTriggered: 'Hoje às 11:30'
-  },
-  {
-    id: 'rule-3',
-    companyId: 'comp-2',
-    name: '🛡️ Stop-Loss: Pausar se Custo por Conversa > R$ 12',
-    type: 'STOP_LOSS_CPA',
-    conditionField: 'cpa',
-    operator: 'GREATER_THAN',
-    thresholdValue: 12.0,
-    action: 'PAUSE_AD',
-    actionValue: null,
-    isActive: true,
-    lastTriggered: 'Hoje às 09:20'
+    lastTriggered: 'Monitorando'
   }
 ];
 
-const INITIAL_CONVERSATIONS: Conversation[] = [
+const INITIAL_CONVERSATIONS: Conversation[] = [];
+
+const INITIAL_MESSAGES: Record<string, Message[]> = {};
+
+const INITIAL_CONNECTIONS: NetworkConnection[] = [
   {
-    id: 'conv-1',
+    id: 'conn-real-meta',
     companyId: 'comp-1',
-    channel: 'WHATSAPP',
-    contactName: 'Juliana Paes',
-    contactPhone: '+55 (65) 99677-2226',
-    originAd: '[WHATSAPP] Atendimento VIP Promoção',
-    unreadCount: 1,
-    lastMessage: 'Queria saber se tem o vestido vermelho no tamanho M?',
-    lastMessageTime: '12:14',
-    aiStatus: 'IA Respondendo',
-    totalSalesValue: 0
-  },
-  {
-    id: 'conv-2',
-    companyId: 'comp-1',
-    channel: 'INSTAGRAM_DM',
-    contactName: '@gabriela.costa',
-    contactPhone: null,
-    originAd: '[ESCALA] Vestidos Verão',
-    unreadCount: 0,
-    lastMessage: 'Amei! Acabei de finalizar o pedido com o cupom que vc mandou 🥰',
-    lastMessageTime: '11:45',
-    aiStatus: 'Venda Concluída (R$ 289,00)',
-    totalSalesValue: 289.0
-  },
-  {
-    id: 'conv-3',
-    companyId: 'comp-2',
-    channel: 'WHATSAPP',
-    contactName: 'Roberto Albuquerque',
-    contactPhone: '+55 (11) 99123-4567',
-    originAd: '[INSTAGRAM] Implantes Dentários',
-    unreadCount: 1,
-    lastMessage: 'Gostaria de agendar uma avaliação para implante na sexta-feira.',
-    lastMessageTime: '13:05',
-    aiStatus: 'Agendamento em Andamento',
-    totalSalesValue: 0
-  },
-  {
-    id: 'conv-4',
-    companyId: 'comp-3',
-    channel: 'WHATSAPP',
-    contactName: 'Dr. Fernando Vasconcellos',
-    contactPhone: '+55 (11) 98111-2233',
-    originAd: '[PESQUISA] Casas Alphaville SP',
-    unreadCount: 0,
-    lastMessage: 'Pode me enviar o book completo da casa de 5 suítes no Residencial 1?',
-    lastMessageTime: '10:30',
-    aiStatus: 'Qualificado (Corretor Notificado)',
-    totalSalesValue: 0
+    platform: 'META',
+    connected: true,
+    accountName: 'Cristhian Sancore',
+    accountId: 'act_367199183317832',
+    pixelOrTagId: 'pix_meta_auto',
+    updatedAt: 'Conectado via Facebook'
   }
 ];
 
-const INITIAL_MESSAGES: Record<string, Message[]> = {
-  'conv-1': [
-    { id: 'm-1', senderType: 'CUSTOMER', text: 'Oi! Vi o anúncio no Insta com frete grátis!', time: '12:12' },
-    { id: 'm-2', senderType: 'AI_BOT', text: 'Olá Juliana! Seja super bem-vinda à Moda Express! Sim, temos frete grátis para pedidos acima de R$ 150 hoje. Como posso te ajudar?', time: '12:12' },
-    { id: 'm-3', senderType: 'CUSTOMER', text: 'Queria saber se tem o vestido vermelho no tamanho M?', time: '12:14' }
-  ],
-  'conv-2': [
-    { id: 'm-21', senderType: 'CUSTOMER', text: 'Tem cupom de primeira compra?', time: '11:40' },
-    { id: 'm-22', senderType: 'AI_BOT', text: 'Com certeza! Use o cupom BEMVINDA10 para ganhar 10% de desconto adicional!', time: '11:41' },
-    { id: 'm-23', senderType: 'CUSTOMER', text: 'Amei! Acabei de finalizar o pedido com o cupom que vc mandou 🥰', time: '11:45' },
-    { id: 'm-24', senderType: 'SYSTEM_SALE', text: '🎉 VENDA REGISTRADA: R$ 289,00 via PIX (Vestido Verão Rosa Floral M)', time: '11:46' }
-  ],
-  'conv-3': [
-    { id: 'm-31', senderType: 'CUSTOMER', text: 'Olá! Vi o anúncio sobre implantes dentários.', time: '13:00' },
-    { id: 'm-32', senderType: 'AI_BOT', text: 'Olá Roberto! Muito prazer. Nossa equipe especializada realiza avaliações digitais completas. Você tem preferência de horário para agendamento?', time: '13:01' },
-    { id: 'm-33', senderType: 'CUSTOMER', text: 'Gostaria de agendar uma avaliação para implante na sexta-feira.', time: '13:05' }
-  ],
-  'conv-4': [
-    { id: 'm-41', senderType: 'CUSTOMER', text: 'Boa tarde, tenho interesse na casa de Alphaville.', time: '10:28' },
-    { id: 'm-42', senderType: 'AI_BOT', text: 'Excelente escolha! Imóvel com acabamento de alto padrão. Gostaria de receber a planta?', time: '10:29' },
-    { id: 'm-43', senderType: 'CUSTOMER', text: 'Pode me enviar o book completo da casa de 5 suítes no Residencial 1?', time: '10:30' }
-  ]
-};
+const INITIAL_UTMS: UtmLink[] = [];
 
-const INITIAL_CONNECTIONS: NetworkConnection[] = [];
-
-const INITIAL_UTMS: UtmLink[] = [
-  {
-    id: 'utm-1',
-    companyId: 'comp-1',
-    title: 'Campanha Vestidos Verão - Instagram Reels',
-    destinationUrl: 'https://modaexpress.com.br/verao',
-    finalUrl: 'https://modaexpress.com.br/verao?utm_source=meta&utm_medium=instagram_reels&utm_campaign=escala_verao&utm_content=video_provador_1',
-    source: 'meta',
-    medium: 'instagram_reels',
-    campaign: 'escala_verao',
-    content: 'video_provador_1',
-    clicks: 420,
-    conversions: 18,
-    createdAt: 'Hoje'
-  },
-  {
-    id: 'utm-2',
-    companyId: 'comp-1',
-    title: 'Anúncio Google Pesquisa - Vestido de Festa',
-    destinationUrl: 'https://modaexpress.com.br/festa',
-    finalUrl: 'https://modaexpress.com.br/festa?utm_source=google&utm_medium=cpc&utm_campaign=fundo_de_funil&utm_content=anuncio_texto_1',
-    source: 'google',
-    medium: 'cpc',
-    campaign: 'fundo_de_funil',
-    content: 'anuncio_texto_1',
-    clicks: 210,
-    conversions: 9,
-    createdAt: 'Ontem'
-  }
-];
-
-const INITIAL_SALES: LeadSale[] = [
-  {
-    id: 'sale-1',
-    companyId: 'comp-1',
-    conversationId: 'conv-2',
-    customerName: '@gabriela.costa',
-    campaignName: '[ESCALA] Vestidos Verão',
-    amount: 289.0,
-    product: 'Vestido Verão Rosa Floral M',
-    paymentMethod: 'PIX',
-    createdAt: 'Hoje às 11:46'
-  }
-];
+const INITIAL_SALES: LeadSale[] = [];
 
 export default function App() {
   // Autenticação
@@ -500,6 +360,22 @@ export default function App() {
   const [selectedClientForAccess, setSelectedClientForAccess] = useState<ClientCompanyDetail | null>(null);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
 
+  // Limpeza de cache de dados fictícios antigos para carregar exclusivamente dados reais
+  if (typeof window !== 'undefined' && localStorage.getItem('socialpulse_clean_real_v5') !== 'true') {
+    localStorage.removeItem('socialpulse_companies');
+    localStorage.removeItem('socialpulse_campaigns');
+    localStorage.removeItem('socialpulse_rules');
+    localStorage.removeItem('socialpulse_conversations');
+    localStorage.removeItem('socialpulse_messages');
+    localStorage.removeItem('socialpulse_sales');
+    localStorage.removeItem('socialpulse_utms');
+    localStorage.removeItem('socialpulse_system_users');
+    localStorage.removeItem('socialpulse_connections');
+    localStorage.removeItem('socialpulse_connections_v2');
+    localStorage.removeItem('socialpulse_connections_real');
+    localStorage.setItem('socialpulse_clean_real_v5', 'true');
+  }
+
   // Estados com LocalStorage
   const [clientCompanies, setClientCompanies] = useState<ClientCompanyDetail[]>(() => {
     const saved = localStorage.getItem('socialpulse_companies');
@@ -532,10 +408,8 @@ export default function App() {
   });
 
   const [connections, setConnections] = useState<NetworkConnection[]>(() => {
-    localStorage.removeItem('socialpulse_connections');
-    localStorage.removeItem('socialpulse_connections_v2');
     const saved = localStorage.getItem('socialpulse_connections_real');
-    return saved ? JSON.parse(saved) : [];
+    return saved ? JSON.parse(saved) : INITIAL_CONNECTIONS;
   });
 
   const [utmLinks, setUtmLinks] = useState<UtmLink[]>(() => {
