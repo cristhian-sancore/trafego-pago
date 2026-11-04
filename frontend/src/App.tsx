@@ -2437,11 +2437,11 @@ export default function App() {
                           Conta Meta Ads: {metaBilling.accountName} ({metaBilling.accountId})
                         </span>
                         <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full">
-                          {metaBilling.statusLabel}
+                          {metaBilling.statusLabel || (metaBilling.accountStatus === 'ACTIVE' ? 'Ativa & Regular' : metaBilling.accountStatus)}
                         </span>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        Forma de Pagamento: <b>{metaBilling.fundingSources?.[0] || 'Cartão Cadastrado'}</b> • Moeda: {metaBilling.currency}
+                        Forma de Pagamento: <b>{metaBilling.paymentMethodName || metaBilling.fundingSources?.[0] || 'Cartão Cadastrado'}</b> • Moeda: {metaBilling.currency}
                       </p>
                     </div>
                   </div>
@@ -2450,14 +2450,14 @@ export default function App() {
                     <div>
                       <p className="text-[11px] text-slate-400">Total Faturado Meta</p>
                       <p className="text-sm font-bold text-slate-100">
-                        R$ {Number(metaBilling.amountSpent || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {metaBilling.formattedSpent || `R$ ${Number(metaBilling.amountSpent || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                       </p>
                     </div>
 
                     <div>
                       <p className="text-[11px] text-slate-400">Saldo Atual a Pagar</p>
                       <p className="text-sm font-bold text-emerald-400">
-                        R$ {Number(metaBilling.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {metaBilling.formattedBalance || `R$ ${Number(metaBilling.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                       </p>
                     </div>
 
