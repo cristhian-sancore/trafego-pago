@@ -17,6 +17,11 @@ export interface Company {
   name: string;
   niche: string;
   document: string;
+  monthlyBudgetLimit?: number;
+  evolutionInstance?: string;
+  whatsappContact?: string;
+  aiPrompt?: string;
+  aiAutoReply?: boolean;
 }
 
 export interface Campaign {
@@ -24,6 +29,7 @@ export interface Campaign {
   companyId: string;
   platform: Platform;
   name: string;
+  objective?: string;
   status: 'ACTIVE' | 'PAUSED';
   dailyBudget: number;
   spendToday: number;
@@ -33,6 +39,8 @@ export interface Campaign {
   cpa: number;
   roas: number;
   autopilotStatus: string;
+  adCopy?: string;
+  targetUrl?: string;
 }
 
 export interface AutomationRule {
@@ -88,4 +96,27 @@ export interface SuperAdminData {
   activeAgencies: number;
   totalManagedCompanies: number;
   pendingInvoices: number;
+}
+
+export interface EvolutionInstance {
+  id: string;
+  name: string;
+  connectionStatus: string;
+  ownerJid?: string;
+  profileName?: string;
+  profilePicUrl?: string | null;
+  integration?: string;
+  number?: string | null;
+}
+
+export interface NetworkConnection {
+  id: string;
+  companyId: string;
+  platform: Platform;
+  connected: boolean;
+  accountId: string;
+  accountName: string;
+  pixelOrTagId?: string;
+  accessToken?: string;
+  updatedAt: string;
 }
