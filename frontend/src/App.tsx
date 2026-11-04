@@ -659,6 +659,7 @@ export default function App() {
   const [connAccountName, setConnAccountName] = useState('');
   const [connAccountId, setConnAccountId] = useState('');
   const [connPixelId, setConnPixelId] = useState('');
+  const [connToken, setConnToken] = useState('');
 
   // Form: Construtor de UTM
   const [utmTitle, setUtmTitle] = useState('');
@@ -1002,6 +1003,7 @@ export default function App() {
                 accountName: connAccountName || c.accountName,
                 accountId: connAccountId || c.accountId,
                 pixelOrTagId: connPixelId || c.pixelOrTagId,
+                accessToken: connToken || c.accessToken,
                 updatedAt: 'Agora'
               }
             : c
@@ -1016,6 +1018,7 @@ export default function App() {
         accountName: connAccountName || `Conta ${connPlatform}`,
         accountId: connAccountId || 'act_' + Math.floor(Math.random() * 10000000),
         pixelOrTagId: connPixelId || 'pix_' + Math.floor(Math.random() * 10000000),
+        accessToken: connToken || '',
         updatedAt: 'Agora'
       };
       setConnections(prev => [...prev, newConn]);
@@ -1025,6 +1028,8 @@ export default function App() {
     setConnAccountName('');
     setConnAccountId('');
     setConnPixelId('');
+    setConnToken('');
+    alert(`Conta ${connPlatform} configurada e conectada para ${activeCompany.name}!`);
   };
 
   const handleToggleConnection = (connId: string) => {
@@ -2720,6 +2725,81 @@ export default function App() {
                   {evolutionFeedback && <p className="text-xs mt-2 font-medium text-slate-300">{evolutionFeedback}</p>}
                 </div>
               </div>
+
+              {/* LISTA DE CONTAS DE ANÚNCIOS DAS REDES SOCIAIS */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-100">Contas de Anúncios de {activeCompany.name}</h3>
+                    <p className="text-xs text-slate-400">Configure as chaves e IDs de API para gerenciar anúncios automaticamente.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {(['META', 'GOOGLE', 'TIKTOK', 'KWAI', 'LINKEDIN'] as Platform[]).map(plat => {
+                    const conn = filteredConnections.find(c => c.platform === plat);
+                    const isConn = conn?.connected;
+
+                    return (
+                      <div key={plat} className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-extrabold text-sm text-slate-100">{plat} ADS</span>
+                            <span
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                                isConn
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : 'bg-slate-800 text-slate-500'
+                              }`}
+                            >
+                              {isConn ? '🟢 Conectado' : '⚪ Desconectado'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-300 font-semibold mb-1 truncate">
+                            {conn?.accountName || 'Nenhuma conta vinculada'}
+                          </p>
+                          {conn ? (
+                            <div className="text-[10px] text-slate-400 space-y-0.5 font-mono">
+                              <p>ID Conta: <span className="text-slate-200">{conn.accountId}</span></p>
+                              <p>Pixel: <span className="text-slate-200">{conn.pixelOrTagId || 'Nenhum'}</span></p>
+                              <p>Status API: <span className="text-emerald-400">Token Salvo</span></p>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-500">Clique em Configurar API para vincular</p>
+                          )}
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+                          {conn ? (
+                            <button
+                              onClick={() => handleToggleConnection(conn.id)}
+                              className="text-xs font-semibold text-slate-400 hover:text-slate-200 cursor-pointer"
+                            >
+                              {isConn ? 'Pausar API' : 'Reativar'}
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-500">Pendente</span>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              setConnPlatform(plat);
+                              setConnAccountName(conn?.accountName || '');
+                              setConnAccountId(conn?.accountId || '');
+                              setConnPixelId(conn?.pixelOrTagId || '');
+                              setConnToken(conn?.accessToken || '');
+                              setIsConnectionModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                          >
+                            Configurar API
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
@@ -3374,11 +3454,41 @@ export default function App() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 <Share2 className="w-5 h-5 text-indigo-400" />
-                Conectar Conta de Anúncios ({connPlatform})
+                Configurar API de Anúncios ({connPlatform})
               </h3>
               <button onClick={() => setIsConnectionModalOpen(false)} className="text-slate-400 hover:text-slate-200">
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* DICA DE ONDE PEGAR AS CREDENCIAIS */}
+            <div className="p-3 bg-indigo-950/40 border border-indigo-800/60 rounded-xl text-xs text-indigo-300 mb-4">
+              <p className="font-bold mb-1">📌 Onde encontrar as credenciais do {connPlatform}:</p>
+              {connPlatform === 'META' && (
+                <p className="text-[11px] text-slate-300">
+                  Acesse <b>business.facebook.com</b> → Configurações do Negócio → <b>Contas de Anúncios</b> (copie o ID <code>act_...</code>). O Token Permanente é gerado em <b>Usuários do Sistema</b> com permissões <code>ads_management</code> e <code>ads_read</code>.
+                </p>
+              )}
+              {connPlatform === 'GOOGLE' && (
+                <p className="text-[11px] text-slate-300">
+                  Acesse o <b>Google Ads</b> no canto superior direito e copie o <b>ID de Cliente</b> (ex: <code>123-456-7890</code>). O Developer Token fica em <b>Ferramentas → Centro da API</b>.
+                </p>
+              )}
+              {connPlatform === 'TIKTOK' && (
+                <p className="text-[11px] text-slate-300">
+                  Acesse o <b>TikTok Ads Manager</b> → Configurações da Conta e copie o <b>Advertiser ID</b> e gere o Access Token no portal de Desenvolvedores.
+                </p>
+              )}
+              {connPlatform === 'KWAI' && (
+                <p className="text-[11px] text-slate-300">
+                  Acesse o painel <b>Kwai for Business</b> → Configurações da Conta de Anúncios.
+                </p>
+              )}
+              {connPlatform === 'LINKEDIN' && (
+                <p className="text-[11px] text-slate-300">
+                  Acesse o <b>LinkedIn Campaign Manager</b> → Contas de Anúncios e Developers OAuth.
+                </p>
+              )}
             </div>
 
             <form onSubmit={handleSaveConnection} className="space-y-3.5">
@@ -3389,7 +3499,7 @@ export default function App() {
                   required
                   value={connAccountName}
                   onChange={e => setConnAccountName(e.target.value)}
-                  placeholder={`Ex: Conta Oficial ${connPlatform}`}
+                  placeholder={`Ex: Conta Oficial ${connPlatform} - ${activeCompany.name}`}
                   className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                 />
               </div>
@@ -3401,8 +3511,8 @@ export default function App() {
                   required
                   value={connAccountId}
                   onChange={e => setConnAccountId(e.target.value)}
-                  placeholder="Ex: act_98124981 ou 123-456-7890"
-                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                  placeholder={connPlatform === 'META' ? 'Ex: act_9812498123' : 'Ex: 123-456-7890'}
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-mono"
                 />
               </div>
 
@@ -3413,7 +3523,18 @@ export default function App() {
                   value={connPixelId}
                   onChange={e => setConnPixelId(e.target.value)}
                   placeholder="Ex: pix_8819238 ou AW-1928371"
-                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Token de Acesso / API Secret Key</label>
+                <input
+                  type="password"
+                  value={connToken}
+                  onChange={e => setConnToken(e.target.value)}
+                  placeholder="Cole o Access Token ou Developer Token aqui..."
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-mono"
                 />
               </div>
 
@@ -3421,7 +3542,7 @@ export default function App() {
                 type="submit"
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs shadow-lg shadow-emerald-600/30 transition-all cursor-pointer mt-2"
               >
-                Testar & Ativar Conexão
+                Salvar Credenciais e Conectar API
               </button>
             </form>
           </div>
