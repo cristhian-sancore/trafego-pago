@@ -35,7 +35,10 @@ import {
   User,
   ArrowLeft,
   Smartphone,
-  Check
+  Check,
+  Edit2,
+  Trash2,
+  X
 } from 'lucide-react';
 import { Company, Campaign, AutomationRule, Conversation, Message, Agency, SuperAdminData, AuthUser, UserRole } from './types';
 
@@ -48,45 +51,47 @@ interface ClientCompanyDetail extends Company {
   clientUserEmail: string;
 }
 
-// Contas cadastradas por NOME DE USUÁRIO e CELULAR
-const INITIAL_USERS = [
+interface SystemUserRecord {
+  id: string;
+  name: string;
+  username: string;
+  password: string;
+  phone: string;
+  role: UserRole;
+  status: 'ACTIVE' | 'BLOCKED';
+  agencyName?: string;
+  companyId?: string;
+}
+
+const INITIAL_USERS: SystemUserRecord[] = [
   {
+    id: 'usr-admin',
+    name: 'Cristhian Sancore',
     username: 'admin',
     password: 'admin',
     phone: '(11) 99999-0001',
-    user: {
-      id: 'usr-admin',
-      name: 'Cristhian Sancore',
-      username: 'admin',
-      phone: '(11) 99999-0001',
-      role: 'SUPER_ADMIN' as UserRole
-    }
+    role: 'SUPER_ADMIN',
+    status: 'ACTIVE'
   },
   {
+    id: 'usr-agency',
+    name: 'Carlos Mendonça',
     username: 'carlos_alpha',
     password: '123',
     phone: '(11) 98888-1234',
-    user: {
-      id: 'usr-agency',
-      name: 'Carlos Mendonça',
-      username: 'carlos_alpha',
-      phone: '(11) 98888-1234',
-      role: 'AGENCY_ADMIN' as UserRole,
-      agencyName: 'Agência Alpha Digital'
-    }
+    role: 'AGENCY_ADMIN',
+    status: 'ACTIVE',
+    agencyName: 'Agência Alpha Digital'
   },
   {
+    id: 'usr-client',
+    name: 'Fernanda Rocha',
     username: 'fernanda_moda',
     password: '123',
     phone: '(11) 97777-5678',
-    user: {
-      id: 'usr-client',
-      name: 'Fernanda Rocha',
-      username: 'fernanda_moda',
-      phone: '(11) 97777-5678',
-      role: 'CLIENT_VIEWER' as UserRole,
-      companyId: 'comp-1'
-    }
+    role: 'CLIENT_VIEWER',
+    status: 'ACTIVE',
+    companyId: 'comp-1'
   }
 ];
 
@@ -97,8 +102,16 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Base de usuários locais (para suportar novos cadastros e redefinição de senha)
-  const [registeredUsers, setRegisteredUsers] = useState(INITIAL_USERS);
+  // Base de Usuários Cadastrados
+  const [systemUsers, setSystemUsers] = useState<SystemUserRecord[]>(() => {
+    const saved = localStorage.getItem('socialpulse_system_users');
+    return saved ? JSON.parse(saved) : INITIAL_USERS;
+  });
+
+  // Salva usuários no localStorage sempre que alterados
+  useEffect(() => {
+    localStorage.setItem('socialpulse_system_users', JSON.stringify(systemUsers));
+  }, [systemUsers]);
 
   // Estados de Telas de Autenticação: 'login' | 'register' | 'verify_phone' | 'forgot_password' | 'reset_password_verify'
   const [authView, setAuthView] = useState<'login' | 'register' | 'verify_phone' | 'forgot_password' | 'reset_password_verify'>('login');
@@ -124,6 +137,18 @@ export default function App() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [recoveryUserFound, setRecoveryUserFound] = useState<any>(null);
+
+  // Modal de Edição de Usuário pelo Admin
+  const [editingUser, setEditingUser] = useState<SystemUserRecord | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Formulário do Admin para Criar Novo Usuário
+  const [adminNewName, setAdminNewName] = useState('');
+  const [adminNewUsername, setAdminNewUsername] = useState('');
+  const [adminNewPhone, setAdminNewPhone] = useState('');
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [adminNewRole, setAdminNewRole] = useState<UserRole>('AGENCY_ADMIN');
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'clients' | 'integrations' | 'admin'>('dashboard');
   
@@ -402,13 +427,26 @@ export default function App() {
     setAuthSuccess('');
 
     const cleanUsername = loginUsername.trim().toLowerCase().replace(/^@/, '');
-    const matched = registeredUsers.find(
+    const matched = systemUsers.find(
       u => u.username.toLowerCase() === cleanUsername && u.password === loginPassword
     );
 
     if (matched) {
-      setCurrentUser(matched.user);
-      localStorage.setItem('socialpulse_auth_user', JSON.stringify(matched.user));
+      if (matched.status === 'BLOCKED') {
+        setAuthError('Sua conta foi suspensa pelo Administrador. Entre em contato com o suporte.');
+        return;
+      }
+      const userAuth: AuthUser = {
+        id: matched.id,
+        name: matched.name,
+        username: matched.username,
+        phone: matched.phone,
+        role: matched.role,
+        agencyName: matched.agencyName,
+        companyId: matched.companyId
+      };
+      setCurrentUser(userAuth);
+      localStorage.setItem('socialpulse_auth_user', JSON.stringify(userAuth));
     } else {
       setAuthError('Nome de usuário ou senha incorretos.');
     }
@@ -416,11 +454,20 @@ export default function App() {
 
   // Login Rápido (Demonstração)
   const quickLogin = (index: number) => {
-    const selected = registeredUsers[index];
+    const selected = systemUsers[index];
     setLoginUsername(selected.username);
     setLoginPassword(selected.password);
-    setCurrentUser(selected.user);
-    localStorage.setItem('socialpulse_auth_user', JSON.stringify(selected.user));
+    const userAuth: AuthUser = {
+      id: selected.id,
+      name: selected.name,
+      username: selected.username,
+      phone: selected.phone,
+      role: selected.role,
+      agencyName: selected.agencyName,
+      companyId: selected.companyId
+    };
+    setCurrentUser(userAuth);
+    localStorage.setItem('socialpulse_auth_user', JSON.stringify(userAuth));
   };
 
   // Iniciar Cadastro -> Gera código e envia ao celular
@@ -431,8 +478,7 @@ export default function App() {
 
     const cleanUsername = regUsername.trim().toLowerCase().replace(/^@/, '');
 
-    // Verifica se já existe o nome de usuário
-    if (registeredUsers.some(u => u.username.toLowerCase() === cleanUsername)) {
+    if (systemUsers.some(u => u.username.toLowerCase() === cleanUsername)) {
       setAuthError('Este nome de usuário já está em uso. Escolha outro.');
       return;
     }
@@ -442,7 +488,6 @@ export default function App() {
       return;
     }
 
-    // Gera código de 6 dígitos aleatório
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedCode(code);
 
@@ -464,28 +509,32 @@ export default function App() {
     setAuthError('');
 
     if (verificationCode !== generatedCode && verificationCode !== '123456') {
-      setAuthError('Código de confirmação incorreto. Verifique o código recebido no seu celular.');
+      setAuthError('Código de confirmação incorreto.');
       return;
     }
 
-    // Salva o novo usuário na lista
-    const newUserRecord = {
+    const newUserRecord: SystemUserRecord = {
+      id: `usr-${Date.now()}`,
+      name: pendingUser.name,
       username: pendingUser.username,
       password: pendingUser.password,
       phone: pendingUser.phone,
-      user: {
-        id: `usr-${Date.now()}`,
-        name: pendingUser.name,
-        username: pendingUser.username,
-        phone: pendingUser.phone,
-        role: pendingUser.role,
-        agencyName: `Agência de ${pendingUser.name}`
-      }
+      role: pendingUser.role,
+      status: 'ACTIVE',
+      agencyName: `Agência de ${pendingUser.name}`
     };
 
-    setRegisteredUsers(prev => [...prev, newUserRecord]);
-    setCurrentUser(newUserRecord.user);
-    localStorage.setItem('socialpulse_auth_user', JSON.stringify(newUserRecord.user));
+    setSystemUsers(prev => [...prev, newUserRecord]);
+    const userAuth: AuthUser = {
+      id: newUserRecord.id,
+      name: newUserRecord.name,
+      username: newUserRecord.username,
+      phone: newUserRecord.phone,
+      role: newUserRecord.role,
+      agencyName: newUserRecord.agencyName
+    };
+    setCurrentUser(userAuth);
+    localStorage.setItem('socialpulse_auth_user', JSON.stringify(userAuth));
   };
 
   // Iniciar Recuperação de Senha por Celular ou Nome de Usuário
@@ -495,7 +544,7 @@ export default function App() {
     setAuthSuccess('');
 
     const query = recoveryTarget.trim().toLowerCase().replace(/^@/, '');
-    const found = registeredUsers.find(
+    const found = systemUsers.find(
       u => u.username.toLowerCase() === query || u.phone.replace(/\D/g, '') === query.replace(/\D/g, '')
     );
 
@@ -517,7 +566,7 @@ export default function App() {
     setAuthError('');
 
     if (recoveryCode !== generatedCode && recoveryCode !== '123456') {
-      setAuthError('Código incorreto. Digite o código de 6 dígitos enviado para o seu celular.');
+      setAuthError('Código incorreto.');
       return;
     }
 
@@ -531,8 +580,7 @@ export default function App() {
       return;
     }
 
-    // Atualiza a senha no banco local
-    setRegisteredUsers(prev =>
+    setSystemUsers(prev =>
       prev.map(u => (u.username === recoveryUserFound.username ? { ...u, password: newPassword } : u))
     );
 
@@ -540,6 +588,94 @@ export default function App() {
     setLoginUsername(recoveryUserFound.username);
     setLoginPassword(newPassword);
     setAuthView('login');
+  };
+
+  // =========================================================================
+  // GESTÃO DE USUÁRIOS PELO SUPER ADMIN (ALTERAR NOME, TELEFONE, SENHA, ETC.)
+  // =========================================================================
+  
+  // Abrir Modal de Edição de Usuário
+  const handleOpenEditUser = (user: SystemUserRecord) => {
+    setEditingUser({ ...user });
+    setIsEditModalOpen(true);
+  };
+
+  // Salvar Alterações do Usuário Editado
+  const handleSaveUserEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    setSystemUsers(prev =>
+      prev.map(u => (u.id === editingUser.id ? { ...editingUser } : u))
+    );
+
+    // Se o admin editou a si mesmo, atualiza também a sessão ativa
+    if (currentUser?.id === editingUser.id) {
+      const updatedAuth: AuthUser = {
+        ...currentUser,
+        name: editingUser.name,
+        username: editingUser.username,
+        phone: editingUser.phone,
+        role: editingUser.role
+      };
+      setCurrentUser(updatedAuth);
+      localStorage.setItem('socialpulse_auth_user', JSON.stringify(updatedAuth));
+    }
+
+    setIsEditModalOpen(false);
+    setEditingUser(null);
+  };
+
+  // Alternar Bloqueio do Usuário
+  const handleToggleUserStatus = (userId: string) => {
+    setSystemUsers(prev =>
+      prev.map(u => {
+        if (u.id === userId) {
+          const nextStatus = u.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE';
+          return { ...u, status: nextStatus };
+        }
+        return u;
+      })
+    );
+  };
+
+  // Excluir Usuário
+  const handleDeleteUser = (userId: string) => {
+    if (currentUser?.id === userId) {
+      alert('Você não pode excluir sua própria conta de administrador.');
+      return;
+    }
+    if (confirm('Tem certeza que deseja excluir permanentemente este usuário?')) {
+      setSystemUsers(prev => prev.filter(u => u.id !== userId));
+    }
+  };
+
+  // Criar Usuário pelo Admin
+  const handleAdminCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUsername = adminNewUsername.trim().toLowerCase().replace(/^@/, '');
+
+    if (systemUsers.some(u => u.username.toLowerCase() === cleanUsername)) {
+      alert('Este nome de usuário já existe.');
+      return;
+    }
+
+    const newUser: SystemUserRecord = {
+      id: `usr-${Date.now()}`,
+      name: adminNewName,
+      username: cleanUsername,
+      phone: adminNewPhone,
+      password: adminNewPassword,
+      role: adminNewRole,
+      status: 'ACTIVE'
+    };
+
+    setSystemUsers(prev => [...prev, newUser]);
+    setIsCreateModalOpen(false);
+    setAdminNewName('');
+    setAdminNewUsername('');
+    setAdminNewPhone('');
+    setAdminNewPassword('');
   };
 
   const handleLogout = () => {
@@ -658,17 +794,15 @@ export default function App() {
   };
 
   // =========================================================================
-  // SE NÃO ESTIVER AUTENTICADO: FLUXO DE LOGIN, CADASTRO & RECUPERAÇÃO
+  // SE NÃO ESTIVER AUTENTICADO: TELAS DE LOGIN, CADASTRO & RECUPERAÇÃO
   // =========================================================================
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden font-['Plus_Jakarta_Sans',sans-serif]">
-        {/* Glow Effects */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-emerald-500/10 blur-[130px] rounded-full pointer-events-none"></div>
         <div className="absolute bottom-10 right-10 w-[400px] h-[300px] bg-teal-500/10 blur-[120px] rounded-full pointer-events-none"></div>
 
         <div className="w-full max-w-md relative z-10 space-y-6">
-          {/* Logo & Headline */}
           <div className="text-center space-y-2">
             <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center font-black text-slate-950 text-2xl shadow-xl shadow-emerald-500/30">
               S
@@ -679,7 +813,6 @@ export default function App() {
             </p>
           </div>
 
-          {/* Mensagens de Sucesso ou Erro Globais */}
           {authSuccess && (
             <div className="p-3.5 rounded-2xl bg-emerald-950/70 border border-emerald-600/40 text-xs text-emerald-300 flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
@@ -694,9 +827,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ------------------------------------------------------------- */}
-          {/* 1. TELA DE LOGIN (POR NOME DE USUÁRIO)                         */}
-          {/* ------------------------------------------------------------- */}
+          {/* 1. TELA DE LOGIN */}
           {authView === 'login' && (
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
               <div className="flex justify-between items-start">
@@ -765,7 +896,6 @@ export default function App() {
                 </button>
               </form>
 
-              {/* Link para Cadastro com Celular */}
               <div className="text-center pt-1 border-t border-slate-800/80">
                 <p className="text-xs text-slate-400">
                   Não possui cadastro?{' '}
@@ -782,7 +912,6 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Botões de Acesso Rápido para Teste */}
               <div className="pt-2 space-y-2">
                 <span className="block text-center text-[10px] uppercase font-bold text-slate-500">
                   Contas Rápidas de Teste
@@ -814,9 +943,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ------------------------------------------------------------- */}
-          {/* 2. TELA DE CADASTRO COM CELULAR (CONFIRMAÇÃO VIA WHATSAPP)    */}
-          {/* ------------------------------------------------------------- */}
+          {/* 2. TELA DE CADASTRO */}
           {authView === 'register' && (
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
               <div className="flex items-center gap-2">
@@ -911,9 +1038,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ------------------------------------------------------------- */}
-          {/* 3. TELA DE VALIDAÇÃO DO CÓDIGO NO CELULAR                     */}
-          {/* ------------------------------------------------------------- */}
+          {/* 3. TELA DE VALIDAÇÃO DO CÓDIGO */}
           {authView === 'verify_phone' && (
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
               <div className="text-center space-y-1">
@@ -964,9 +1089,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ------------------------------------------------------------- */}
-          {/* 4. RECUPERAÇÃO DE SENHA POR CELULAR / USUÁRIO                 */}
-          {/* ------------------------------------------------------------- */}
+          {/* 4. RECUPERAÇÃO DE SENHA */}
           {authView === 'forgot_password' && (
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
               <div className="flex items-center gap-2">
@@ -1010,9 +1133,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ------------------------------------------------------------- */}
-          {/* 5. VALIDAR CÓDIGO & REDEFINIR SENHA                           */}
-          {/* ------------------------------------------------------------- */}
+          {/* 5. REDEFINIR SENHA */}
           {authView === 'reset_password_verify' && (
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
               <div className="text-center space-y-1">
@@ -1088,7 +1209,7 @@ export default function App() {
   }
 
   // =========================================================================
-  // SE ESTIVER AUTENTICADO: PAINEL COMPLETO
+  // SE ESTIVER AUTENTICADO: PAINEL COMPLETO COM CONTROLE TOTAL DE USUÁRIOS
   // =========================================================================
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
@@ -1109,7 +1230,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Seletor Rápido de Empresa (Desabilitado se for cliente com empresa fixa) */}
           {currentUser.role !== 'CLIENT_VIEWER' ? (
             <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-1.5">
               <Building2 className="w-4 h-4 text-emerald-400" />
@@ -1135,7 +1255,6 @@ export default function App() {
 
         {/* Informações do Usuário & Ações */}
         <div className="flex items-center gap-3">
-          {/* Badge de Piloto Automático */}
           {currentUser.role !== 'CLIENT_VIEWER' && (
             <div className="hidden sm:flex items-center gap-2 bg-emerald-950/40 border border-emerald-600/30 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1143,7 +1262,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Botão Dono do SaaS (Apenas para Super Admin) */}
+          {/* Botão Painel do Administrador Geral */}
           {currentUser.role === 'SUPER_ADMIN' && (
             <button
               onClick={() => setActiveTab(activeTab === 'admin' ? 'dashboard' : 'admin')}
@@ -1154,11 +1273,10 @@ export default function App() {
               }`}
             >
               <Crown className="w-3.5 h-3.5" />
-              {activeTab === 'admin' ? 'Voltar ao Tráfego' : 'Painel do Dono do SaaS'}
+              {activeTab === 'admin' ? 'Voltar ao Tráfego' : 'Controle do Admin (Usuários & SaaS)'}
             </button>
           )}
 
-          {/* Usuário Logado & Logout */}
           <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
             <div className="text-right hidden md:block">
               <div className="text-xs font-bold text-slate-200">
@@ -1275,9 +1393,7 @@ export default function App() {
       {/* Conteúdo Principal */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
         
-        {/* ======================================================== */}
-        {/* ABA 1: DASHBOARD GERAL                                   */}
-        {/* ======================================================== */}
+        {/* ABA 1: DASHBOARD GERAL */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800/80 p-5 rounded-2xl border border-slate-800 shadow-xl">
@@ -1297,7 +1413,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Cards de Métricas Consolidadas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl relative overflow-hidden">
                 <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
@@ -1352,7 +1467,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Comparativo por Rede Social */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl space-y-4">
                 <div className="flex items-center justify-between">
@@ -1438,9 +1552,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* ABA: MEUS CLIENTES & ACESSOS (CONTROLE DA AGÊNCIA)       */}
-        {/* ======================================================== */}
+        {/* ABA: MEUS CLIENTES & ACESSOS */}
         {activeTab === 'clients' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/30 border border-emerald-500/30 p-6 rounded-2xl">
@@ -1462,7 +1574,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Resumo Financeiro da Agência com os Clientes */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl">
                 <div className="text-xs text-slate-400 font-semibold mb-2">RECEITA DE HONORÁRIOS DA AGÊNCIA</div>
@@ -1489,7 +1600,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Tabela de Clientes Gerenciados */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
               <div className="p-4 border-b border-slate-800 flex items-center justify-between">
                 <h3 className="font-bold text-sm text-slate-200">Empresas Clientes</h3>
@@ -1584,9 +1694,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* ABA 2: GESTOR DE CAMPANHAS                               */}
-        {/* ======================================================== */}
+        {/* ABA 2: GESTOR DE CAMPANHAS */}
         {activeTab === 'campaigns' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1694,9 +1802,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* ABA 3: PILOTO AUTOMÁTICO                                 */}
-        {/* ======================================================== */}
+        {/* ABA 3: PILOTO AUTOMÁTICO */}
         {activeTab === 'autopilot' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1757,9 +1863,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* ABA 4: CAIXA DE ENTRADA & IA                             */}
-        {/* ======================================================== */}
+        {/* ABA 4: CAIXA DE ENTRADA & IA */}
         {activeTab === 'inbox' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1887,9 +1991,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* ABA 5: CONEXÕES & REDES SOCIAIS                          */}
-        {/* ======================================================== */}
+        {/* ABA 5: CONEXÕES & REDES SOCIAIS */}
         {activeTab === 'integrations' && currentUser.role !== 'CLIENT_VIEWER' && (
           <div className="space-y-6">
             <div>
@@ -1973,7 +2075,7 @@ export default function App() {
         )}
 
         {/* ======================================================== */}
-        {/* ABA 6: SUPER ADMIN (PAINEL DO DONO DO SAAS)              */}
+        {/* ABA 6: PAINEL DO ADMINISTRADOR GERAL (CONTROLE TOTAL)    */}
         {/* ======================================================== */}
         {activeTab === 'admin' && currentUser.role === 'SUPER_ADMIN' && (
           <div className="space-y-6">
@@ -1981,21 +2083,123 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Crown className="w-4 h-4" /> Painel do Proprietário do SaaS
+                    <Crown className="w-4 h-4" /> Painel de Controle Máximo (Super Admin)
                   </span>
                   <h2 className="text-2xl font-black text-slate-100 mt-1">
-                    Gestão de Agências & Assinaturas Recorrentes
+                    Gestão Completa de Usuários & Assinaturas
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">
-                    Monitore faturamento em tempo real, cobranças automáticas via PIX/Cartão e libere ou bloqueie o acesso de qualquer agência.
+                    Você tem poder total para alterar Nome, Telefone, Usuário e Senha de qualquer pessoa cadastrada, além de bloquear ou liberar acessos.
                   </p>
                 </div>
-                <button className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-lg shadow-amber-500/20 shrink-0">
-                  + Cadastrar Nova Agência / Revenda
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-lg shadow-amber-500/20 shrink-0 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Cadastrar Novo Usuário
                 </button>
               </div>
             </div>
 
+            {/* TABELA DE GESTÃO DE TODOS OS USUÁRIOS */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-bold text-sm text-slate-200">Todos os Usuários Cadastrados ({systemUsers.length})</h3>
+                </div>
+                <span className="text-xs text-slate-400">Controle irrestrito de credenciais</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-800/80 text-slate-400 uppercase font-semibold text-[11px] border-b border-slate-700/60">
+                    <tr>
+                      <th className="py-3.5 px-4">Nome Completo</th>
+                      <th className="py-3.5 px-4">Nome de Usuário</th>
+                      <th className="py-3.5 px-4">Celular (WhatsApp)</th>
+                      <th className="py-3.5 px-4">Senha Atual</th>
+                      <th className="py-3.5 px-4">Perfil / Papel</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4 text-right">Ações do Admin</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {systemUsers.map(user => (
+                      <tr key={user.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-200">
+                          {user.name}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                            @{user.username}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-300">
+                          {user.phone}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-mono bg-slate-950 px-2 py-1 rounded text-amber-300 border border-slate-800">
+                            {user.password}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              user.role === 'SUPER_ADMIN'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : user.role === 'AGENCY_ADMIN'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                            }`}
+                          >
+                            {user.role === 'SUPER_ADMIN'
+                              ? '👑 Super Admin'
+                              : user.role === 'AGENCY_ADMIN'
+                              ? '🏢 Gestor Agência'
+                              : '👁️ Cliente Leitura'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <button
+                            onClick={() => handleToggleUserStatus(user.id)}
+                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              user.status === 'ACTIVE'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                            }`}
+                          >
+                            {user.status === 'ACTIVE' ? 'ATIVO' : 'BLOQUEADO'}
+                          </button>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenEditUser(user)}
+                              title="Alterar Nome, Telefone, Senha ou Papel"
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition-colors flex items-center gap-1 text-[11px] font-semibold"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" /> Editar
+                            </button>
+
+                            {user.id !== currentUser.id && (
+                              <button
+                                onClick={() => handleDeleteUser(user.id)}
+                                title="Excluir Usuário"
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* MÉTRICAS DE FATURAMENTO SAAS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl">
                 <div className="text-xs text-slate-400 font-semibold mb-2">MRR (FATURAMENTO RECORRENTE)</div>
@@ -2029,84 +2233,224 @@ export default function App() {
                 <div className="text-xs text-rose-400 mt-2">Bloqueio automático em 48h</div>
               </div>
             </div>
-
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                <h3 className="font-bold text-sm text-slate-200">Agências Assinantes Cadastradas</h3>
-                <span className="text-xs text-slate-400">Total: {agencies.length} agências</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-800/80 text-slate-400 uppercase font-semibold text-[11px] border-b border-slate-700/60">
-                    <tr>
-                      <th className="py-3.5 px-4">Agência / Responsável</th>
-                      <th className="py-3.5 px-4">Plano Contratado</th>
-                      <th className="py-3.5 px-4">Valor Mensal</th>
-                      <th className="py-3.5 px-4">Forma de Pagamento</th>
-                      <th className="py-3.5 px-4">Próximo Vencimento</th>
-                      <th className="py-3.5 px-4">Status da Assinatura</th>
-                      <th className="py-3.5 px-4 text-right">Ação de Acesso</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {agencies.map(agency => (
-                      <tr key={agency.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-200 text-xs">{agency.name}</div>
-                          <div className="text-[11px] text-slate-400">{agency.ownerName} • {agency.email}</div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-800 text-amber-300 border border-amber-500/20">
-                            {agency.planName}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-bold text-slate-100">
-                          R$ {agency.monthlyPrice.toFixed(2)}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-300">
-                          {agency.paymentMethod}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-slate-400">
-                          {agency.nextBillingDate}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                              agency.status === 'ACTIVE'
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : agency.status === 'PAST_DUE'
-                                ? 'bg-amber-500/20 text-amber-400'
-                                : 'bg-rose-500/20 text-rose-400'
-                            }`}
-                          >
-                            {agency.status === 'ACTIVE'
-                              ? 'ATIVO / EM DIA'
-                              : agency.status === 'PAST_DUE'
-                              ? 'FATURA ATRASADA'
-                              : 'ACESSO BLOQUEADO'}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => toggleAgencyStatus(agency.id)}
-                            className={`text-[11px] font-bold px-3 py-1 rounded-lg transition-all ${
-                              agency.status === 'ACTIVE'
-                                ? 'bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/40'
-                                : 'bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-800/40'
-                            }`}
-                          >
-                            {agency.status === 'ACTIVE' ? 'Bloquear Acesso' : 'Liberar Acesso'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
         )}
       </main>
+
+      {/* ======================================================== */}
+      {/* MODAL 1: EDITAR QUALQUER USUÁRIO (NOME, TEL, SENHA, ETC) */}
+      {/* ======================================================== */}
+      {isEditModalOpen && editingUser && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-base text-slate-100">Editar Dados do Usuário</h3>
+              </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUserEdit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={editingUser.name}
+                  onChange={e => setEditingUser({ ...editingUser, name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Nome de Usuário (@)</label>
+                <input
+                  type="text"
+                  required
+                  value={editingUser.username}
+                  onChange={e => setEditingUser({ ...editingUser, username: e.target.value.toLowerCase().replace(/^@/, '') })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Telefone / Celular</label>
+                <input
+                  type="text"
+                  required
+                  value={editingUser.phone}
+                  onChange={e => setEditingUser({ ...editingUser, phone: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Redefinir Senha do Usuário
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingUser.password}
+                  onChange={e => setEditingUser({ ...editingUser, password: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-amber-300 outline-none focus:border-amber-500 font-mono"
+                />
+                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                  Você pode digitar a nova senha diretamente aqui.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Papel / Nível de Acesso</label>
+                <select
+                  value={editingUser.role}
+                  onChange={e => setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500"
+                >
+                  <option value="SUPER_ADMIN">👑 Super Admin (Controle Total)</option>
+                  <option value="AGENCY_ADMIN">🏢 Gestor de Agência (Multi-Empresas)</option>
+                  <option value="CLIENT_VIEWER">👁️ Cliente Final (Somente Leitura)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Status da Conta</label>
+                <select
+                  value={editingUser.status}
+                  onChange={e => setEditingUser({ ...editingUser, status: e.target.value as 'ACTIVE' | 'BLOCKED' })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500"
+                >
+                  <option value="ACTIVE">🟢 Ativo e Liberado</option>
+                  <option value="BLOCKED">🔴 Bloqueado / Suspenso</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold shadow-lg shadow-amber-500/20"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 2: CADASTRAR NOVO USUÁRIO PELO ADMIN               */}
+      {/* ======================================================== */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Plus className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-base text-slate-100">Cadastrar Novo Usuário</h3>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminCreateUser} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={adminNewName}
+                  onChange={e => setAdminNewName(e.target.value)}
+                  placeholder="Ex: Rafael Souza"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Nome de Usuário (@)</label>
+                <input
+                  type="text"
+                  required
+                  value={adminNewUsername}
+                  onChange={e => setAdminNewUsername(e.target.value.toLowerCase().replace(/^@/, ''))}
+                  placeholder="rafael_marketing"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Telefone / Celular (WhatsApp)</label>
+                <input
+                  type="text"
+                  required
+                  value={adminNewPhone}
+                  onChange={e => setAdminNewPhone(e.target.value)}
+                  placeholder="(11) 98765-4321"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Senha de Acesso</label>
+                <input
+                  type="text"
+                  required
+                  value={adminNewPassword}
+                  onChange={e => setAdminNewPassword(e.target.value)}
+                  placeholder="Defina a senha"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-amber-300 outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Nível de Acesso (Papel)</label>
+                <select
+                  value={adminNewRole}
+                  onChange={e => setAdminNewRole(e.target.value as UserRole)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-amber-500"
+                >
+                  <option value="AGENCY_ADMIN">🏢 Gestor de Agência (Multi-Empresas)</option>
+                  <option value="CLIENT_VIEWER">👁️ Cliente Final (Somente Leitura)</option>
+                  <option value="SUPER_ADMIN">👑 Super Admin (Controle Total)</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold shadow-lg shadow-amber-500/20"
+                >
+                  Criar Usuário
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950 text-slate-500 px-6 py-4 text-xs text-center">
