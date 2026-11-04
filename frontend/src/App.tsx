@@ -401,38 +401,7 @@ const INITIAL_MESSAGES: Record<string, Message[]> = {
   ]
 };
 
-const INITIAL_CONNECTIONS: NetworkConnection[] = [
-  {
-    id: 'conn-1',
-    companyId: 'comp-1',
-    platform: 'META',
-    connected: true,
-    accountName: 'Meta Ads - Moda Express',
-    accountId: 'act_98471203948',
-    pixelOrTagId: 'pix_88291049281',
-    updatedAt: 'Hoje'
-  },
-  {
-    id: 'conn-2',
-    companyId: 'comp-1',
-    platform: 'GOOGLE',
-    connected: true,
-    accountName: 'Google Ads - Moda E-commerce',
-    accountId: '948-281-9921',
-    pixelOrTagId: 'AW-981249182',
-    updatedAt: 'Ontem'
-  },
-  {
-    id: 'conn-3',
-    companyId: 'comp-1',
-    platform: 'TIKTOK',
-    connected: true,
-    accountName: 'TikTok For Business - ModaExpressBR',
-    accountId: 'adv_8721948192',
-    pixelOrTagId: 'TT-C1098231',
-    updatedAt: 'Hoje'
-  }
-];
+const INITIAL_CONNECTIONS: NetworkConnection[] = [];
 
 const INITIAL_UTMS: UtmLink[] = [
   {
@@ -563,8 +532,10 @@ export default function App() {
   });
 
   const [connections, setConnections] = useState<NetworkConnection[]>(() => {
-    const saved = localStorage.getItem('socialpulse_connections');
-    return saved ? JSON.parse(saved) : INITIAL_CONNECTIONS;
+    localStorage.removeItem('socialpulse_connections');
+    localStorage.removeItem('socialpulse_connections_v2');
+    const saved = localStorage.getItem('socialpulse_connections_real');
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [utmLinks, setUtmLinks] = useState<UtmLink[]>(() => {
@@ -598,7 +569,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('socialpulse_rules', JSON.stringify(automationRules)); }, [automationRules]);
   useEffect(() => { localStorage.setItem('socialpulse_conversations', JSON.stringify(conversations)); }, [conversations]);
   useEffect(() => { localStorage.setItem('socialpulse_messages', JSON.stringify(messages)); }, [messages]);
-  useEffect(() => { localStorage.setItem('socialpulse_connections', JSON.stringify(connections)); }, [connections]);
+  useEffect(() => { localStorage.setItem('socialpulse_connections_real', JSON.stringify(connections)); }, [connections]);
   useEffect(() => { localStorage.setItem('socialpulse_utms', JSON.stringify(utmLinks)); }, [utmLinks]);
   useEffect(() => { localStorage.setItem('socialpulse_sales', JSON.stringify(leadSales)); }, [leadSales]);
   useEffect(() => { localStorage.setItem('socialpulse_dayparting', JSON.stringify(dayparting)); }, [dayparting]);
@@ -1192,13 +1163,31 @@ export default function App() {
       if (data.mode === 'live' && data.url) {
         window.location.href = data.url;
       } else {
-        setInstantAuthPlatform(platform);
-        setIsInstantAuthModalOpen(true);
+        if (currentUser.role === 'SUPER_ADMIN') {
+          alert('⚠️ Nenhuma credencial de API da Meta está configurada ainda!\n\nVocê precisa primeiro cadastrar o Meta App ID e Meta App Secret na aba Admin -> Configurações de APIs para que a autorização oficial com o Facebook funcione.');
+          setActiveTab('admin');
+          setAdminActiveSubTab('apis');
+        } else {
+          alert('⚠️ As credenciais oficiais da Meta API ainda não foram configuradas pelo Administrador da plataforma. Solicite ao administrador cadastrar o App ID no painel.');
+        }
       }
     } catch (e: any) {
       alert(`Erro ao iniciar conexão: ${e.message}`);
     } finally {
       setIsConnectingSocial(false);
+    }
+  };
+
+  const handleClearAllConnections = async () => {
+    if (confirm('Deseja realmente desconectar e limpar todas as contas vinculadas a esta empresa?')) {
+      setConnections(prev => prev.filter(c => c.companyId !== selectedCompanyId));
+      localStorage.removeItem('socialpulse_connections');
+      localStorage.removeItem('socialpulse_connections_v2');
+      localStorage.removeItem('socialpulse_connections_real');
+      try {
+        await fetch('/api/connections/reset', { method: 'POST' });
+      } catch (e) {}
+      alert('Todas as contas de redes sociais foram desconectadas com sucesso.');
     }
   };
 
@@ -3428,6 +3417,15 @@ export default function App() {
                     <h3 className="text-base font-bold text-slate-100">Gerenciadores & Redes Conectadas</h3>
                     <p className="text-xs text-slate-400">Status em tempo real das contas vinculadas a esta empresa.</p>
                   </div>
+
+                  <button
+                    onClick={handleClearAllConnections}
+                    className="px-3 py-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Desconectar e limpar todas as contas desta empresa"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Desconectar Todas
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -3535,7 +3533,7 @@ export default function App() {
                           ) : (
                             <div className="p-3 bg-slate-950/60 border border-slate-800/60 rounded-xl">
                               <p className="text-[11px] text-slate-400 leading-relaxed">
-                                Clique para fazer login oficial com as credenciais da sua empresa e liberar a sincronização automática.
+                                Nenhuma conta conectada. Autorize o acesso oficial para sincronizar anúncios e métricas.
                               </p>
                             </div>
                           )}
@@ -3543,46 +3541,70 @@ export default function App() {
 
                         <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
                           {!isConn ? (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  if (plat === 'META') {
-                                    handleStartMetaOAuth('META');
-                                  } else {
-                                    handleInstantConnect(plat);
-                                  }
-                                }}
-                                disabled={isConnectingSocial}
-                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
-                                  plat === 'META'
-                                    ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30'
-                                    : plat === 'GOOGLE'
-                                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30'
-                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
-                                }`}
-                              >
-                                <Zap className="w-3.5 h-3.5" />
-                                {isConnectingSocial
-                                  ? 'Conectando...'
-                                  : plat === 'META'
-                                  ? '🔵 Login com Facebook'
-                                  : `Conectar ${plat} (1-Clique)`}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setConnPlatform(plat);
-                                  setConnAccountName(conn?.accountName || '');
-                                  setConnAccountId(conn?.accountId || '');
-                                  setConnPixelId(conn?.pixelOrTagId || '');
-                                  setConnToken(conn?.accessToken || '');
-                                  setShowManualApiForm(true);
-                                  setIsConnectionModalOpen(true);
-                                }}
-                                className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold cursor-pointer"
-                                title="Configuração Manual (Avançado)"
-                              >
-                                ⚙️
-                              </button>
+                            <div className="space-y-2">
+                              {plat === 'META' && !apiMasterConfig.isMetaConfigured ? (
+                                <div className="p-3 bg-amber-950/40 border border-amber-500/40 rounded-xl space-y-2">
+                                  <div className="flex items-center gap-1.5 text-amber-300 font-bold text-xs">
+                                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                                    <span>API da Meta Não Configurada</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-300 leading-tight">
+                                    O Administrador precisa cadastrar o App ID e Secret no painel Admin para liberar a autorização.
+                                  </p>
+                                  <button
+                                    onClick={() => {
+                                      setActiveTab('admin');
+                                      setAdminActiveSubTab('apis');
+                                    }}
+                                    className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-amber-600/20"
+                                  >
+                                    <Key className="w-3.5 h-3.5" />
+                                    Configurar no Painel Admin
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      if (plat === 'META') {
+                                        handleStartMetaOAuth('META');
+                                      } else {
+                                        handleInstantConnect(plat);
+                                      }
+                                    }}
+                                    disabled={isConnectingSocial}
+                                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
+                                      plat === 'META'
+                                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30'
+                                        : plat === 'GOOGLE'
+                                        ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30'
+                                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
+                                    }`}
+                                  >
+                                    <Zap className="w-3.5 h-3.5" />
+                                    {isConnectingSocial
+                                      ? 'Conectando...'
+                                      : plat === 'META'
+                                      ? '🔵 Entrar com Facebook'
+                                      : `Conectar ${plat} (1-Clique)`}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setConnPlatform(plat);
+                                      setConnAccountName(conn?.accountName || '');
+                                      setConnAccountId(conn?.accountId || '');
+                                      setConnPixelId(conn?.pixelOrTagId || '');
+                                      setConnToken(conn?.accessToken || '');
+                                      setShowManualApiForm(true);
+                                      setIsConnectionModalOpen(true);
+                                    }}
+                                    className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold cursor-pointer"
+                                    title="Configuração Manual (Avançado)"
+                                  >
+                                    ⚙️
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center justify-between gap-2">
@@ -3604,17 +3626,12 @@ export default function App() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    setConnPlatform(plat);
-                                    setConnAccountName(conn?.accountName || '');
-                                    setConnAccountId(conn?.accountId || '');
-                                    setConnPixelId(conn?.pixelOrTagId || '');
-                                    setConnToken(conn?.accessToken || '');
-                                    setShowManualApiForm(false);
-                                    setIsConnectionModalOpen(true);
+                                    setConnections(prev => prev.filter(c => c.id !== conn.id));
                                   }}
-                                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold cursor-pointer"
+                                  className="px-2.5 py-1.5 bg-red-950/60 hover:bg-red-900 text-red-300 rounded-lg text-xs font-bold cursor-pointer"
+                                  title="Desconectar esta conta"
                                 >
-                                  Gerenciar
+                                  Desconectar
                                 </button>
                               </div>
                             </div>

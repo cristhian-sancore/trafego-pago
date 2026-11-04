@@ -135,48 +135,7 @@ export const db = {
       aiAutoReply: false
     }
   ],
-  connections: [
-    {
-      id: 'conn-1',
-      companyId: 'comp-1',
-      platform: 'META',
-      connected: true,
-      accountName: 'Conta Meta Ads - Moda Express',
-      accountId: 'act_98471203948',
-      pixelOrTagId: 'pix_88291049281',
-      updatedAt: 'Hoje'
-    },
-    {
-      id: 'conn-2',
-      companyId: 'comp-1',
-      platform: 'GOOGLE',
-      connected: true,
-      accountName: 'Google Ads - Moda E-commerce',
-      accountId: '948-281-9921',
-      pixelOrTagId: 'AW-981249182',
-      updatedAt: 'Ontem'
-    },
-    {
-      id: 'conn-3',
-      companyId: 'comp-1',
-      platform: 'TIKTOK',
-      connected: true,
-      accountName: 'TikTok For Business - ModaExpressBR',
-      accountId: 'adv_8721948192',
-      pixelOrTagId: 'TT-C1098231',
-      updatedAt: 'Hoje'
-    },
-    {
-      id: 'conn-4',
-      companyId: 'comp-2',
-      platform: 'META',
-      connected: true,
-      accountName: 'Dr Sorriso Clínicas Meta',
-      accountId: 'act_1029384756',
-      pixelOrTagId: 'pix_10293847',
-      updatedAt: 'Hoje'
-    }
-  ],
+  connections: [] as any[],
   campaigns: [
     {
       id: 'camp-1',
@@ -571,6 +530,12 @@ app.patch('/api/connections/:id/toggle', (req: Request, res: Response) => {
   conn.connected = !conn.connected;
   conn.updatedAt = 'Agora';
   res.json({ success: true, connection: conn });
+});
+
+// Limpar todas as conexões (resetar para estado desconectado)
+app.post('/api/connections/reset', (req: Request, res: Response) => {
+  db.connections = [];
+  res.json({ success: true, message: 'Todas as conexões foram limpas com sucesso.' });
 });
 
 // -------------------------------------------------------------
