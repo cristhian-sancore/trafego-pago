@@ -562,6 +562,8 @@ app.get('/api/admin/api-config', (req: Request, res: Response) => {
       tiktokAppId: masterApiConfig.tiktokAppId,
       tiktokAppSecret: masterApiConfig.tiktokAppSecret ? '••••••••' + masterApiConfig.tiktokAppSecret.slice(-4) : '',
       isMetaConfigured: Boolean(masterApiConfig.metaAppId && masterApiConfig.metaAppSecret),
+      isGoogleConfigured: Boolean(masterApiConfig.googleAdsClientId && masterApiConfig.googleAdsClientSecret),
+      isTikTokConfigured: Boolean(masterApiConfig.tiktokAppId && masterApiConfig.tiktokAppSecret),
       isEvolutionConfigured: Boolean(masterApiConfig.evolutionApiUrl && masterApiConfig.evolutionApiKey)
     }
   });
@@ -608,6 +610,8 @@ app.post('/api/admin/api-config', (req: Request, res: Response) => {
     success: true,
     message: 'Configurações de APIs salvas com sucesso no painel!',
     isMetaConfigured: Boolean(masterApiConfig.metaAppId && masterApiConfig.metaAppSecret),
+    isGoogleConfigured: Boolean(masterApiConfig.googleAdsClientId && masterApiConfig.googleAdsClientSecret),
+    isTikTokConfigured: Boolean(masterApiConfig.tiktokAppId && masterApiConfig.tiktokAppSecret),
     metaCallbackUrl: `${masterApiConfig.appUrl}/api/oauth/meta/callback`
   });
 });
@@ -663,12 +667,12 @@ app.get('/api/oauth/meta/url', (req: Request, res: Response) => {
   const { companyId } = req.query;
   const redirectUri = `${masterApiConfig.appUrl}/api/oauth/meta/callback`;
 
-  // Se o admin ainda não configurou as chaves reais da Meta, usa o modo de simulação instantânea
+  // Se o admin ainda não configurou as chaves reais da Meta, bloqueia com aviso explicativo
   if (!masterApiConfig.metaAppId || !masterApiConfig.metaAppSecret) {
-    return res.json({
-      success: true,
-      mode: 'instant',
-      message: 'Modo direto ativo. O admin pode configurar o App ID e Secret oficial na aba Admin para login nativo da Meta.'
+    return res.status(400).json({
+      success: false,
+      mode: 'unconfigured',
+      message: 'A API da Meta ainda não foi configurada pelo Administrador. Acesse Admin -> Configurações de APIs e cadastre o Meta App ID e Secret.'
     });
   }
 
@@ -794,6 +798,28 @@ app.post('/api/oauth/instant-connect', (req: Request, res: Response) => {
   const { companyId, platform, userName } = req.body;
   if (!companyId || !platform) {
     return res.status(400).json({ error: 'companyId e platform são obrigatórios' });
+  }
+
+  // Validação rigorosa: Nenhuma conta é conectada sem a API mestra cadastrada pelo Admin
+  if (platform === 'META' && (!masterApiConfig.metaAppId || !masterApiConfig.metaAppSecret)) {
+    return res.status(400).json({
+      success: false,
+      error: 'A API da Meta Ads ainda não foi configurada pelo Administrador. Acesse Admin -> Configurações de APIs para cadastrar o App ID e Secret.'
+    });
+  }
+
+  if (platform === 'GOOGLE' && (!masterApiConfig.googleAdsClientId || !masterApiConfig.googleAdsClientSecret)) {
+    return res.status(400).json({
+      success: false,
+      error: 'A API do Google Ads ainda não foi configurada pelo Administrador. Acesse Admin -> Configurações de APIs para cadastrar o Client ID e Secret.'
+    });
+  }
+
+  if (platform === 'TIKTOK' && (!masterApiConfig.tiktokAppId || !masterApiConfig.tiktokAppSecret)) {
+    return res.status(400).json({
+      success: false,
+      error: 'A API do TikTok Ads ainda não foi configurada pelo Administrador. Acesse Admin -> Configurações de APIs para cadastrar o App ID e Secret.'
+    });
   }
 
   const existing = db.connections.find(c => c.companyId === companyId && c.platform === platform);

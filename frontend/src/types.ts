@@ -142,6 +142,8 @@ export interface ApiMasterConfig {
   tiktokAppId: string;
   tiktokAppSecret: string;
   isMetaConfigured: boolean;
+  isGoogleConfigured: boolean;
+  isTikTokConfigured: boolean;
   isEvolutionConfigured: boolean;
 }
 

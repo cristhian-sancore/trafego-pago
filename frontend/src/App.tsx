@@ -591,6 +591,8 @@ export default function App() {
     tiktokAppId: '',
     tiktokAppSecret: '',
     isMetaConfigured: false,
+    isGoogleConfigured: false,
+    isTikTokConfigured: false,
     isEvolutionConfigured: true
   });
   const [isSavingApiConfig, setIsSavingApiConfig] = useState(false);
@@ -1146,6 +1148,12 @@ export default function App() {
         });
         setIsConnectionModalOpen(false);
         setIsInstantAuthModalOpen(false);
+      } else {
+        alert(data.error || `A API de ${platform} Ads ainda não foi configurada pelo Administrador.`);
+        if (currentUser.role === 'SUPER_ADMIN') {
+          setActiveTab('admin');
+          setAdminActiveSubTab('apis');
+        }
       }
     } catch (e: any) {
       alert(`Erro na conexão: ${e.message}`);
@@ -1207,6 +1215,8 @@ export default function App() {
         setApiMasterConfig(prev => ({
           ...prev,
           isMetaConfigured: data.isMetaConfigured,
+          isGoogleConfigured: data.isGoogleConfigured,
+          isTikTokConfigured: data.isTikTokConfigured,
           metaCallbackUrl: data.metaCallbackUrl
         }));
         setTimeout(() => setApiConfigSuccessMsg(''), 6000);
@@ -3399,14 +3409,31 @@ export default function App() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleStartMetaOAuth('META')}
-                    disabled={isConnectingSocial}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    <Zap className="w-4 h-4" />
-                    {isConnectingSocial ? 'Iniciando...' : 'Entrar com Facebook'}
-                  </button>
+                  {apiMasterConfig.isMetaConfigured ? (
+                    <button
+                      onClick={() => handleStartMetaOAuth('META')}
+                      disabled={isConnectingSocial}
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <Zap className="w-4 h-4" />
+                      {isConnectingSocial ? 'Iniciando...' : 'Entrar com Facebook'}
+                    </button>
+                  ) : currentUser.role === 'SUPER_ADMIN' ? (
+                    <button
+                      onClick={() => {
+                        setActiveTab('admin');
+                        setAdminActiveSubTab('apis');
+                      }}
+                      className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-600/30 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <Key className="w-4 h-4" />
+                      Configurar API da Meta no Admin
+                    </button>
+                  ) : (
+                    <span className="px-3.5 py-2 bg-slate-800 text-slate-400 border border-slate-700 rounded-xl text-xs font-semibold">
+                      API Pendente de Ativação
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -3432,6 +3459,10 @@ export default function App() {
                   {(['META', 'GOOGLE', 'TIKTOK', 'KWAI', 'LINKEDIN'] as Platform[]).map(plat => {
                     const conn = filteredConnections.find(c => c.platform === plat);
                     const isConn = conn?.connected;
+                    const isPlatformConfigured =
+                      plat === 'META' ? apiMasterConfig.isMetaConfigured :
+                      plat === 'GOOGLE' ? apiMasterConfig.isGoogleConfigured :
+                      plat === 'TIKTOK' ? apiMasterConfig.isTikTokConfigured : false;
 
                     return (
                       <div
@@ -3542,25 +3573,31 @@ export default function App() {
                         <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
                           {!isConn ? (
                             <div className="space-y-2">
-                              {plat === 'META' && !apiMasterConfig.isMetaConfigured ? (
+                              {!isPlatformConfigured ? (
                                 <div className="p-3 bg-amber-950/40 border border-amber-500/40 rounded-xl space-y-2">
                                   <div className="flex items-center gap-1.5 text-amber-300 font-bold text-xs">
                                     <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
-                                    <span>API da Meta Não Configurada</span>
+                                    <span>API do {plat} ADS Não Configurada</span>
                                   </div>
                                   <p className="text-[11px] text-slate-300 leading-tight">
-                                    O Administrador precisa cadastrar o App ID e Secret no painel Admin para liberar a autorização.
+                                    O Administrador precisa cadastrar as credenciais no painel Admin para liberar a autorização para os clientes.
                                   </p>
-                                  <button
-                                    onClick={() => {
-                                      setActiveTab('admin');
-                                      setAdminActiveSubTab('apis');
-                                    }}
-                                    className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-amber-600/20"
-                                  >
-                                    <Key className="w-3.5 h-3.5" />
-                                    Configurar no Painel Admin
-                                  </button>
+                                  {currentUser.role === 'SUPER_ADMIN' ? (
+                                    <button
+                                      onClick={() => {
+                                        setActiveTab('admin');
+                                        setAdminActiveSubTab('apis');
+                                      }}
+                                      className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-amber-600/20"
+                                    >
+                                      <Key className="w-3.5 h-3.5" />
+                                      Configurar no Painel Admin
+                                    </button>
+                                  ) : (
+                                    <p className="text-[10px] text-slate-400 italic">
+                                      Aguardando ativação pelo Super Administrador da plataforma.
+                                    </p>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="flex gap-2">
@@ -3586,7 +3623,9 @@ export default function App() {
                                       ? 'Conectando...'
                                       : plat === 'META'
                                       ? '🔵 Entrar com Facebook'
-                                      : `Conectar ${plat} (1-Clique)`}
+                                      : plat === 'GOOGLE'
+                                      ? '🔴 Entrar com Google Ads'
+                                      : `⚡ Entrar com ${plat} Ads`}
                                   </button>
                                   <button
                                     onClick={() => {
@@ -3830,10 +3869,10 @@ export default function App() {
                             className={`px-3 py-1 rounded-full text-xs font-bold border ${
                               apiMasterConfig.isMetaConfigured
                                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
                             }`}
                           >
-                            {apiMasterConfig.isMetaConfigured ? '🟢 Chaves Ativas' : '🟡 Modo Demonstração (Simulação)'}
+                            {apiMasterConfig.isMetaConfigured ? '🟢 Chaves Ativas' : '⚪ Pendente de Configuração'}
                           </span>
                         </div>
                       </div>
@@ -4027,42 +4066,102 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* CARD 3: GOOGLE ADS & TIKTOK FOR BUSINESS (EXPANSÕES) */}
+                    {/* CARD 3: GOOGLE ADS & TIKTOK FOR BUSINESS */}
                     <div className="p-6 bg-slate-900/90 border border-slate-800 rounded-3xl space-y-4">
-                      <div className="flex items-center gap-3 border-b border-slate-800/80 pb-4">
-                        <div className="w-10 h-10 bg-gradient-to-tr from-red-600 to-indigo-600 rounded-xl flex items-center justify-center text-white">
-                          <Rocket className="w-5 h-5" />
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-tr from-red-600 to-indigo-600 rounded-xl flex items-center justify-center text-white">
+                            <Rocket className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h4 className="text-base font-black text-slate-100">
+                              Google Ads & TikTok for Business (Credenciais Mestres)
+                            </h4>
+                            <p className="text-xs text-slate-400">
+                              Cadastre as credenciais de aplicativo para liberar o login com 1-clique dos seus clientes nessas redes.
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="text-base font-black text-slate-100">
-                            Google Ads & TikTok for Business (Credenciais Opcionais)
-                          </h4>
-                          <p className="text-xs text-slate-400">
-                            Configure os clientes de API para permitir login 1-clique do Google e TikTok.
-                          </p>
+
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                              apiMasterConfig.isGoogleConfigured
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}
+                          >
+                            Google: {apiMasterConfig.isGoogleConfigured ? '🟢 Ativo' : '⚪ Pendente'}
+                          </span>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                              apiMasterConfig.isTikTokConfigured
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}
+                          >
+                            TikTok: {apiMasterConfig.isTikTokConfigured ? '🟢 Ativo' : '⚪ Pendente'}
+                          </span>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-300 mb-1.5">Google Client ID</label>
-                          <input
-                            type="text"
-                            value={apiMasterConfig.googleAdsClientId}
-                            onChange={e => setApiMasterConfig({ ...apiMasterConfig, googleAdsClientId: e.target.value })}
-                            placeholder="Ex: 123456789.apps.googleusercontent.com"
-                            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
-                          />
+                      {/* GOOGLE ADS CREDENTIALS */}
+                      <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
+                        <h5 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-red-500" />
+                          Google Ads API (Console Cloud / OAuth Client ID)
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">Google Client ID</label>
+                            <input
+                              type="text"
+                              value={apiMasterConfig.googleAdsClientId}
+                              onChange={e => setApiMasterConfig({ ...apiMasterConfig, googleAdsClientId: e.target.value })}
+                              placeholder="Ex: 123456789.apps.googleusercontent.com"
+                              className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-red-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">Google Client Secret</label>
+                            <input
+                              type="password"
+                              value={apiMasterConfig.googleAdsClientSecret}
+                              onChange={e => setApiMasterConfig({ ...apiMasterConfig, googleAdsClientSecret: e.target.value })}
+                              placeholder="Cole o Client Secret do Google..."
+                              className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-red-500"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-300 mb-1.5">TikTok App ID</label>
-                          <input
-                            type="text"
-                            value={apiMasterConfig.tiktokAppId}
-                            onChange={e => setApiMasterConfig({ ...apiMasterConfig, tiktokAppId: e.target.value })}
-                            placeholder="Ex: tt_app_12345678"
-                            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
-                          />
+                      </div>
+
+                      {/* TIKTOK ADS CREDENTIALS */}
+                      <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
+                        <h5 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                          TikTok for Business Developer (App ID & Secret)
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">TikTok App ID</label>
+                            <input
+                              type="text"
+                              value={apiMasterConfig.tiktokAppId}
+                              onChange={e => setApiMasterConfig({ ...apiMasterConfig, tiktokAppId: e.target.value })}
+                              placeholder="Ex: tt_app_12345678"
+                              className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1.5">TikTok App Secret</label>
+                            <input
+                              type="password"
+                              value={apiMasterConfig.tiktokAppSecret}
+                              onChange={e => setApiMasterConfig({ ...apiMasterConfig, tiktokAppSecret: e.target.value })}
+                              placeholder="Cole o Secret do TikTok..."
+                              className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -4697,33 +4796,63 @@ export default function App() {
                 Basta fazer o login oficial para vincular suas páginas e gerenciadores de anúncios com total segurança.
               </p>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (connPlatform === 'META') {
-                    handleStartMetaOAuth('META');
-                  } else {
-                    handleInstantConnect(connPlatform);
-                  }
-                }}
-                disabled={isConnectingSocial}
-                className={`w-full py-3.5 rounded-xl text-xs font-black text-white shadow-xl cursor-pointer flex items-center justify-center gap-2 transition-all ${
-                  connPlatform === 'META'
-                    ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+              {!((connPlatform === 'META' ? apiMasterConfig.isMetaConfigured : connPlatform === 'GOOGLE' ? apiMasterConfig.isGoogleConfigured : connPlatform === 'TIKTOK' ? apiMasterConfig.isTikTokConfigured : false)) ? (
+                <div className="p-3 bg-amber-950/50 border border-amber-500/50 rounded-xl space-y-2">
+                  <div className="flex items-center gap-1.5 text-amber-300 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>API do {connPlatform} ADS Não Configurada no Painel</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-tight">
+                    O Administrador da plataforma precisa cadastrar o App ID e Secret no menu Admin para liberar o login automático.
+                  </p>
+                  {currentUser.role === 'SUPER_ADMIN' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsConnectionModalOpen(false);
+                        setActiveTab('admin');
+                        setAdminActiveSubTab('apis');
+                      }}
+                      className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-amber-600/20"
+                    >
+                      <Key className="w-3.5 h-3.5" />
+                      Configurar Agora no Painel Admin
+                    </button>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 italic">
+                      Aguardando ativação pelo Super Administrador da plataforma.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (connPlatform === 'META') {
+                      handleStartMetaOAuth('META');
+                    } else {
+                      handleInstantConnect(connPlatform);
+                    }
+                  }}
+                  disabled={isConnectingSocial}
+                  className={`w-full py-3.5 rounded-xl text-xs font-black text-white shadow-xl cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                    connPlatform === 'META'
+                      ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+                      : connPlatform === 'GOOGLE'
+                      ? 'bg-red-600 hover:bg-red-500 shadow-red-600/30'
+                      : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30'
+                  }`}
+                >
+                  <Zap className="w-4 h-4" />
+                  {isConnectingSocial
+                    ? 'Conectando à sua conta...'
+                    : connPlatform === 'META'
+                    ? '🔵 Entrar com Facebook / Instagram (Conectar Agora)'
                     : connPlatform === 'GOOGLE'
-                    ? 'bg-red-600 hover:bg-red-500 shadow-red-600/30'
-                    : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30'
-                }`}
-              >
-                <Zap className="w-4 h-4" />
-                {isConnectingSocial
-                  ? 'Conectando à sua conta...'
-                  : connPlatform === 'META'
-                  ? '🔵 Entrar com Facebook / Instagram (Conectar Agora)'
-                  : connPlatform === 'GOOGLE'
-                  ? '🔴 Entrar com Google Ads (Conectar Agora)'
-                  : `⚡ Entrar e Conectar ${connPlatform} Agora`}
-              </button>
+                    ? '🔴 Entrar com Google Ads (Conectar Agora)'
+                    : `⚡ Entrar e Conectar ${connPlatform} Agora`}
+                </button>
+              )}
             </div>
 
             {/* OPÇÃO 2: MODO MANUAL AVANÇADO (EXPANSÍVEL) */}
