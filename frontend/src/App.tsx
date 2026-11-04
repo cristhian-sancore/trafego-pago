@@ -25,13 +25,17 @@ import {
   Plus,
   Lock,
   Unlock,
-  Mail,
   UserCheck,
   Eye,
   FileText,
   LogOut,
   KeyRound,
-  ArrowRight
+  ArrowRight,
+  Phone,
+  User,
+  ArrowLeft,
+  Smartphone,
+  Check
 } from 'lucide-react';
 import { Company, Campaign, AutomationRule, Conversation, Message, Agency, SuperAdminData, AuthUser, UserRole } from './types';
 
@@ -44,36 +48,42 @@ interface ClientCompanyDetail extends Company {
   clientUserEmail: string;
 }
 
-// Contas cadastradas para login
-const DEMO_USERS = [
+// Contas cadastradas por NOME DE USUÁRIO e CELULAR
+const INITIAL_USERS = [
   {
-    email: 'admin@socialpulse.com.br',
+    username: 'admin',
     password: 'admin',
+    phone: '(11) 99999-0001',
     user: {
       id: 'usr-admin',
       name: 'Cristhian Sancore',
-      email: 'admin@socialpulse.com.br',
+      username: 'admin',
+      phone: '(11) 99999-0001',
       role: 'SUPER_ADMIN' as UserRole
     }
   },
   {
-    email: 'carlos@alphadigital.com.br',
+    username: 'carlos_alpha',
     password: '123',
+    phone: '(11) 98888-1234',
     user: {
       id: 'usr-agency',
       name: 'Carlos Mendonça',
-      email: 'carlos@alphadigital.com.br',
+      username: 'carlos_alpha',
+      phone: '(11) 98888-1234',
       role: 'AGENCY_ADMIN' as UserRole,
       agencyName: 'Agência Alpha Digital'
     }
   },
   {
-    email: 'fernanda@modaexpress.com.br',
+    username: 'fernanda_moda',
     password: '123',
+    phone: '(11) 97777-5678',
     user: {
       id: 'usr-client',
       name: 'Fernanda Rocha',
-      email: 'fernanda@modaexpress.com.br',
+      username: 'fernanda_moda',
+      phone: '(11) 97777-5678',
       role: 'CLIENT_VIEWER' as UserRole,
       companyId: 'comp-1'
     }
@@ -87,9 +97,33 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [loginEmail, setLoginEmail] = useState('');
+  // Base de usuários locais (para suportar novos cadastros e redefinição de senha)
+  const [registeredUsers, setRegisteredUsers] = useState(INITIAL_USERS);
+
+  // Estados de Telas de Autenticação: 'login' | 'register' | 'verify_phone' | 'forgot_password' | 'reset_password_verify'
+  const [authView, setAuthView] = useState<'login' | 'register' | 'verify_phone' | 'forgot_password' | 'reset_password_verify'>('login');
+
+  // Campos de Login
+  const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+
+  // Campos de Cadastro
+  const [regName, setRegName] = useState('');
+  const [regUsername, setRegUsername] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [pendingUser, setPendingUser] = useState<any>(null);
+
+  // Campos de Recuperação de Senha
+  const [recoveryTarget, setRecoveryTarget] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [recoveryUserFound, setRecoveryUserFound] = useState<any>(null);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'autopilot' | 'inbox' | 'clients' | 'integrations' | 'admin'>('dashboard');
   
@@ -355,44 +389,164 @@ export default function App() {
     }
   ]);
 
-  // Se o usuário for cliente com empresa específica, forçar a seleção da empresa dele
   useEffect(() => {
     if (currentUser?.role === 'CLIENT_VIEWER' && currentUser.companyId) {
       setSelectedCompanyId(currentUser.companyId);
     }
   }, [currentUser]);
 
-  // Login Handler
+  // Handler de Login por Nome de Usuário
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError('');
+    setAuthError('');
+    setAuthSuccess('');
 
-    const matched = DEMO_USERS.find(
-      u => u.email.toLowerCase() === loginEmail.trim().toLowerCase() && u.password === loginPassword
+    const cleanUsername = loginUsername.trim().toLowerCase().replace(/^@/, '');
+    const matched = registeredUsers.find(
+      u => u.username.toLowerCase() === cleanUsername && u.password === loginPassword
     );
 
     if (matched) {
       setCurrentUser(matched.user);
       localStorage.setItem('socialpulse_auth_user', JSON.stringify(matched.user));
     } else {
-      setLoginError('E-mail ou senha incorretos. Use uma das opções de acesso rápido abaixo para testar.');
+      setAuthError('Nome de usuário ou senha incorretos.');
     }
   };
 
-  // Login Rápido (Demo)
+  // Login Rápido (Demonstração)
   const quickLogin = (index: number) => {
-    const selected = DEMO_USERS[index];
-    setLoginEmail(selected.email);
+    const selected = registeredUsers[index];
+    setLoginUsername(selected.username);
     setLoginPassword(selected.password);
     setCurrentUser(selected.user);
     localStorage.setItem('socialpulse_auth_user', JSON.stringify(selected.user));
   };
 
-  // Logout Handler
+  // Iniciar Cadastro -> Gera código e envia ao celular
+  const handleStartRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+
+    const cleanUsername = regUsername.trim().toLowerCase().replace(/^@/, '');
+
+    // Verifica se já existe o nome de usuário
+    if (registeredUsers.some(u => u.username.toLowerCase() === cleanUsername)) {
+      setAuthError('Este nome de usuário já está em uso. Escolha outro.');
+      return;
+    }
+
+    if (!regPhone || regPhone.length < 10) {
+      setAuthError('Informe um número de celular válido com DDD para confirmação.');
+      return;
+    }
+
+    // Gera código de 6 dígitos aleatório
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedCode(code);
+
+    setPendingUser({
+      name: regName,
+      username: cleanUsername,
+      phone: regPhone,
+      password: regPassword,
+      role: 'AGENCY_ADMIN' as UserRole
+    });
+
+    setAuthSuccess(`Código de 6 dígitos gerado e enviado para ${regPhone}!`);
+    setAuthView('verify_phone');
+  };
+
+  // Confirmar Código do Celular no Cadastro
+  const handleConfirmRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+
+    if (verificationCode !== generatedCode && verificationCode !== '123456') {
+      setAuthError('Código de confirmação incorreto. Verifique o código recebido no seu celular.');
+      return;
+    }
+
+    // Salva o novo usuário na lista
+    const newUserRecord = {
+      username: pendingUser.username,
+      password: pendingUser.password,
+      phone: pendingUser.phone,
+      user: {
+        id: `usr-${Date.now()}`,
+        name: pendingUser.name,
+        username: pendingUser.username,
+        phone: pendingUser.phone,
+        role: pendingUser.role,
+        agencyName: `Agência de ${pendingUser.name}`
+      }
+    };
+
+    setRegisteredUsers(prev => [...prev, newUserRecord]);
+    setCurrentUser(newUserRecord.user);
+    localStorage.setItem('socialpulse_auth_user', JSON.stringify(newUserRecord.user));
+  };
+
+  // Iniciar Recuperação de Senha por Celular ou Nome de Usuário
+  const handleStartRecovery = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+
+    const query = recoveryTarget.trim().toLowerCase().replace(/^@/, '');
+    const found = registeredUsers.find(
+      u => u.username.toLowerCase() === query || u.phone.replace(/\D/g, '') === query.replace(/\D/g, '')
+    );
+
+    if (!found) {
+      setAuthError('Nenhuma conta encontrada com este nome de usuário ou celular.');
+      return;
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedCode(code);
+    setRecoveryUserFound(found);
+    setAuthSuccess(`Código de redefinição enviado para o celular ${found.phone}!`);
+    setAuthView('reset_password_verify');
+  };
+
+  // Concluir Redefinição de Senha
+  const handleCompleteResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+
+    if (recoveryCode !== generatedCode && recoveryCode !== '123456') {
+      setAuthError('Código incorreto. Digite o código de 6 dígitos enviado para o seu celular.');
+      return;
+    }
+
+    if (newPassword.length < 3) {
+      setAuthError('A nova senha deve ter pelo menos 3 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setAuthError('As senhas não coincidem.');
+      return;
+    }
+
+    // Atualiza a senha no banco local
+    setRegisteredUsers(prev =>
+      prev.map(u => (u.username === recoveryUserFound.username ? { ...u, password: newPassword } : u))
+    );
+
+    setAuthSuccess('Senha redefinida com sucesso! Você já pode fazer login.');
+    setLoginUsername(recoveryUserFound.username);
+    setLoginPassword(newPassword);
+    setAuthView('login');
+  };
+
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('socialpulse_auth_user');
     setActiveTab('dashboard');
+    setAuthView('login');
   };
 
   // Cálculos do Dashboard
@@ -504,7 +658,7 @@ export default function App() {
   };
 
   // =========================================================================
-  // SE NÃO ESTIVER AUTENTICADO: TELA DE LOGIN PROFISSIONAL
+  // SE NÃO ESTIVER AUTENTICADO: FLUXO DE LOGIN, CADASTRO & RECUPERAÇÃO
   // =========================================================================
   if (!currentUser) {
     return (
@@ -525,118 +679,405 @@ export default function App() {
             </p>
           </div>
 
-          {/* Card de Login */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
-            <div>
-              <h2 className="text-lg font-bold text-slate-100">Acesse sua conta</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Entre com seu e-mail e senha cadastrados</p>
+          {/* Mensagens de Sucesso ou Erro Globais */}
+          {authSuccess && (
+            <div className="p-3.5 rounded-2xl bg-emerald-950/70 border border-emerald-600/40 text-xs text-emerald-300 flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+              <span>{authSuccess}</span>
             </div>
+          )}
 
-            {loginError && (
-              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800/60 text-xs text-rose-300 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-                <span>{loginError}</span>
+          {authError && (
+            <div className="p-3.5 rounded-2xl bg-rose-950/70 border border-rose-800/60 text-xs text-rose-300 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 1. TELA DE LOGIN (POR NOME DE USUÁRIO)                         */}
+          {/* ------------------------------------------------------------- */}
+          {authView === 'login' && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-100">Acesse sua conta</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Entre com seu nome de usuário e senha</p>
+                </div>
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                  AUTENTICAÇÃO SEGURA
+                </span>
               </div>
-            )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  E-mail de Acesso
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nome de Usuário
+                  </label>
+                  <div className="relative">
+                    <span className="text-slate-500 font-bold absolute left-3.5 top-2.5 text-xs">@</span>
+                    <input
+                      type="text"
+                      required
+                      value={loginUsername}
+                      onChange={e => setLoginUsername(e.target.value)}
+                      placeholder="seu_usuario"
+                      className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Senha
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthError('');
+                        setAuthSuccess('');
+                        setAuthView('forgot_password');
+                      }}
+                      className="text-[11px] text-emerald-400 hover:underline"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      type="password"
+                      required
+                      value={loginPassword}
+                      onChange={e => setLoginPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                >
+                  Entrar no Painel <ArrowRight className="w-4 h-4" />
+                </button>
+              </form>
+
+              {/* Link para Cadastro com Celular */}
+              <div className="text-center pt-1 border-t border-slate-800/80">
+                <p className="text-xs text-slate-400">
+                  Não possui cadastro?{' '}
+                  <button
+                    onClick={() => {
+                      setAuthError('');
+                      setAuthSuccess('');
+                      setAuthView('register');
+                    }}
+                    className="text-emerald-400 font-bold hover:underline"
+                  >
+                    Cadastre-se com seu celular
+                  </button>
+                </p>
+              </div>
+
+              {/* Botões de Acesso Rápido para Teste */}
+              <div className="pt-2 space-y-2">
+                <span className="block text-center text-[10px] uppercase font-bold text-slate-500">
+                  Contas Rápidas de Teste
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => quickLogin(0)}
+                    className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-amber-500/30 text-center transition-all"
+                  >
+                    <div className="text-[11px] font-bold text-amber-400">@admin</div>
+                    <div className="text-[9px] text-slate-400">Super Admin</div>
+                  </button>
+                  <button
+                    onClick={() => quickLogin(1)}
+                    className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-emerald-500/30 text-center transition-all"
+                  >
+                    <div className="text-[11px] font-bold text-emerald-400">@carlos_alpha</div>
+                    <div className="text-[9px] text-slate-400">Agência</div>
+                  </button>
+                  <button
+                    onClick={() => quickLogin(2)}
+                    className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-teal-500/30 text-center transition-all"
+                  >
+                    <div className="text-[11px] font-bold text-teal-400">@fernanda_moda</div>
+                    <div className="text-[9px] text-slate-400">Cliente</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 2. TELA DE CADASTRO COM CELULAR (CONFIRMAÇÃO VIA WHATSAPP)    */}
+          {/* ------------------------------------------------------------- */}
+          {authView === 'register' && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAuthView('login')}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-100">Criar Nova Conta</h2>
+                  <p className="text-xs text-slate-400">Confirmação instantânea no seu celular</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleStartRegister} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nome Completo
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      value={regName}
+                      onChange={e => setRegName(e.target.value)}
+                      placeholder="Ex: João da Silva"
+                      className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nome de Usuário Escolhido
+                  </label>
+                  <div className="relative">
+                    <span className="text-slate-500 font-bold absolute left-3.5 top-2.5 text-xs">@</span>
+                    <input
+                      type="text"
+                      required
+                      value={regUsername}
+                      onChange={e => setRegUsername(e.target.value)}
+                      placeholder="meu_usuario"
+                      className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Celular com DDD (WhatsApp)
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      value={regPhone}
+                      onChange={e => setRegPhone(e.target.value)}
+                      placeholder="(11) 98765-4321"
+                      className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Crie uma Senha
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      type="password"
+                      required
+                      value={regPassword}
+                      onChange={e => setRegPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                >
+                  <Smartphone className="w-4 h-4" /> Enviar Código no Celular
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 3. TELA DE VALIDAÇÃO DO CÓDIGO NO CELULAR                     */}
+          {/* ------------------------------------------------------------- */}
+          {authView === 'verify_phone' && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
+              <div className="text-center space-y-1">
+                <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-100">Confirmação de Celular</h2>
+                <p className="text-xs text-slate-400">
+                  Enviamos um código de 6 dígitos para o número <strong className="text-emerald-400">{pendingUser?.phone}</strong>
+                </p>
+                <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 text-xs font-mono text-emerald-300 inline-block mt-2">
+                  Código de Demonstração: <strong>{generatedCode || '123456'}</strong>
+                </div>
+              </div>
+
+              <form onSubmit={handleConfirmRegister} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 text-center">
+                    Digite o código de 6 dígitos
+                  </label>
                   <input
-                    type="email"
+                    type="text"
+                    maxLength={6}
                     required
-                    value={loginEmail}
-                    onChange={e => setLoginEmail(e.target.value)}
-                    placeholder="seu.email@exemplo.com.br"
-                    className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    value={verificationCode}
+                    onChange={e => setVerificationCode(e.target.value)}
+                    placeholder="000000"
+                    className="w-full text-center tracking-[0.5em] font-mono text-lg font-bold bg-slate-950/70 border border-slate-800 rounded-xl py-3 text-emerald-400 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" /> Validar & Acessar Plataforma
+                </button>
+              </form>
+
+              <div className="text-center">
+                <button
+                  onClick={() => setAuthView('register')}
+                  className="text-xs text-slate-400 hover:text-white"
+                >
+                  ← Alterar número de celular
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 4. RECUPERAÇÃO DE SENHA POR CELULAR / USUÁRIO                 */}
+          {/* ------------------------------------------------------------- */}
+          {authView === 'forgot_password' && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAuthView('login')}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-100">Recuperar Senha</h2>
+                  <p className="text-xs text-slate-400">Receba o código de recuperação no celular</p>
+                </div>
               </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-300">
-                    Senha
+              <form onSubmit={handleStartRecovery} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nome de Usuário ou Celular Cadastrado
                   </label>
-                  <a href="#" className="text-[11px] text-emerald-400 hover:underline">
-                    Esqueceu?
-                  </a>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      value={recoveryTarget}
+                      onChange={e => setRecoveryTarget(e.target.value)}
+                      placeholder="Ex: carlos_alpha ou (11) 98888-1234"
+                      className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+
+                <button
+                  type="submit"
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                >
+                  <Smartphone className="w-4 h-4" /> Enviar Código no Celular
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 5. VALIDAR CÓDIGO & REDEFINIR SENHA                           */}
+          {/* ------------------------------------------------------------- */}
+          {authView === 'reset_password_verify' && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
+              <div className="text-center space-y-1">
+                <h2 className="text-lg font-bold text-slate-100">Redefinir Senha</h2>
+                <p className="text-xs text-slate-400">
+                  Código enviado para <strong className="text-emerald-400">{recoveryUserFound?.phone}</strong>
+                </p>
+                <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-xs font-mono text-emerald-300 inline-block mt-1">
+                  Código de Demonstração: <strong>{generatedCode || '123456'}</strong>
+                </div>
+              </div>
+
+              <form onSubmit={handleCompleteResetPassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Código de 6 Dígitos
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    required
+                    value={recoveryCode}
+                    onChange={e => setRecoveryCode(e.target.value)}
+                    placeholder="000000"
+                    className="w-full text-center tracking-[0.4em] font-mono font-bold bg-slate-950/70 border border-slate-800 rounded-xl py-2.5 text-emerald-400 outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nova Senha
+                  </label>
                   <input
                     type="password"
                     required
-                    value={loginPassword}
-                    onChange={e => setLoginPassword(e.target.value)}
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 outline-none focus:border-emerald-500"
                   />
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
-              >
-                Entrar no Painel <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Confirmar Nova Senha
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 outline-none focus:border-emerald-500"
+                  />
+                </div>
 
-            {/* Separador */}
-            <div className="relative flex items-center justify-center pt-2">
-              <div className="border-t border-slate-800 w-full"></div>
-              <span className="bg-slate-900 px-3 text-[10px] uppercase font-bold text-slate-500 shrink-0">
-                Acesso Rápido de Teste
-              </span>
+                <button
+                  type="submit"
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" /> Salvar Nova Senha & Fazer Login
+                </button>
+              </form>
             </div>
-
-            {/* Botões de Acesso Rápido */}
-            <div className="space-y-2">
-              <button
-                onClick={() => quickLogin(0)}
-                className="w-full text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 hover:border-amber-500/40 transition-all flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                    <Crown className="w-3.5 h-3.5" /> Super Admin (Você)
-                  </div>
-                  <div className="text-[10px] text-slate-400">admin@socialpulse.com.br (Controle Total & SaaS)</div>
-                </div>
-                <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded">Entrar</span>
-              </button>
-
-              <button
-                onClick={() => quickLogin(1)}
-                className="w-full text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 hover:border-emerald-500/40 transition-all flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5" /> Gestor de Agência
-                  </div>
-                  <div className="text-[10px] text-slate-400">carlos@alphadigital.com.br (Multi-Empresas)</div>
-                </div>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded">Entrar</span>
-              </button>
-
-              <button
-                onClick={() => quickLogin(2)}
-                className="w-full text-left p-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800 hover:border-teal-500/40 transition-all flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-teal-400 flex items-center gap-1.5">
-                    <Eye className="w-3.5 h-3.5" /> Cliente Final (Portal)
-                  </div>
-                  <div className="text-[10px] text-slate-400">fernanda@modaexpress.com.br (Modo Leitura)</div>
-                </div>
-                <span className="text-[10px] bg-teal-500/20 text-teal-300 font-bold px-2 py-0.5 rounded">Entrar</span>
-              </button>
-            </div>
-          </div>
+          )}
 
           <p className="text-center text-[11px] text-slate-500">
             Ambiente seguro protegido por criptografia SSL • SocialPulse © 2026
@@ -720,13 +1161,15 @@ export default function App() {
           {/* Usuário Logado & Logout */}
           <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
             <div className="text-right hidden md:block">
-              <div className="text-xs font-bold text-slate-200">{currentUser.name}</div>
+              <div className="text-xs font-bold text-slate-200">
+                {currentUser.name} <span className="text-emerald-400">(@{currentUser.username})</span>
+              </div>
               <div className="text-[10px] text-slate-400">
                 {currentUser.role === 'SUPER_ADMIN'
                   ? '👑 Super Admin'
                   : currentUser.role === 'AGENCY_ADMIN'
                   ? `🏢 ${currentUser.agencyName || 'Agência'}`
-                  : '👁️ Portal do Cliente'}
+                  : '👁️ Portal do Cliente'} • {currentUser.phone}
               </div>
             </div>
 

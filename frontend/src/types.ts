@@ -5,7 +5,8 @@ export type UserRole = 'SUPER_ADMIN' | 'AGENCY_ADMIN' | 'CLIENT_VIEWER';
 export interface AuthUser {
   id: string;
   name: string;
-  email: string;
+  username: string;
+  phone: string;
   role: UserRole;
   agencyName?: string;
   companyId?: string;
