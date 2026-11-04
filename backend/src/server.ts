@@ -757,6 +757,7 @@ app.get('/api/oauth/meta/callback', async (req: Request, res: Response) => {
         existing.accountName = accountName;
         existing.pixelOrTagId = 'pix_meta_auto';
         existing.updatedAt = 'Conectado via Facebook';
+        (existing as any).accessToken = longLivedToken;
         (existing as any).pageName = pageName;
         (existing as any).instagramUsername = igUsername ? `@${igUsername}` : '';
         (existing as any).currency = currency;
@@ -772,12 +773,20 @@ app.get('/api/oauth/meta/callback', async (req: Request, res: Response) => {
           pixelOrTagId: 'pix_meta_auto',
           updatedAt: 'Conectado via Facebook',
           ...({
+            accessToken: longLivedToken,
             pageName,
             instagramUsername: igUsername ? `@${igUsername}` : '',
             currency,
             availableAccounts
           } as any)
         });
+      }
+
+      // Sincroniza campanhas reais da conta imediatamente
+      try {
+        await syncMetaCampaigns(String(companyId));
+      } catch (e) {
+        console.warn('Aviso ao sincronizar campanhas pós-oauth:', e);
       }
 
       return res.redirect(
@@ -876,26 +885,166 @@ app.post('/api/oauth/disconnect', (req: Request, res: Response) => {
 });
 
 // -------------------------------------------------------------
-// CAMPANHAS & ANÚNCIOS (Criação, Edição, Pausa)
+// CAMPANHAS & ANÚNCIOS (Sincronização com Meta Ads, Criação, Pausa)
 // -------------------------------------------------------------
 
-app.get('/api/campaigns/:companyId', (req: Request, res: Response) => {
+export async function syncMetaCampaigns(companyId: string) {
+  const conn = db.connections.find(c => c.companyId === companyId && c.platform === 'META' && c.connected);
+  if (!conn || !conn.accountId) return [];
+
+  const token = (conn as any).accessToken || (masterApiConfig as any).metaLongLivedToken;
+  if (!token) return [];
+
+  try {
+    const actId = conn.accountId.startsWith('act_') ? conn.accountId : `act_${conn.accountId}`;
+    const campUrl = `https://graph.facebook.com/v19.0/${actId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget,created_time&limit=50&access_token=${token}`;
+    const campRes = await fetch(campUrl);
+    const campData = (await campRes.json()) as any;
+
+    if (!campData.data || !Array.isArray(campData.data)) return [];
+
+    let insightsMap: Record<string, any> = {};
+    try {
+      const insUrl = `https://graph.facebook.com/v19.0/${actId}/insights?level=campaign&fields=campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr,actions&date_preset=maximum&access_token=${token}`;
+      const insRes = await fetch(insUrl);
+      const insData = (await insRes.json()) as any;
+      if (insData.data && Array.isArray(insData.data)) {
+        for (const item of insData.data) {
+          insightsMap[item.campaign_id] = item;
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar insights de campanhas:', e);
+    }
+
+    const imported = campData.data.map((c: any) => {
+      const ins = insightsMap[c.id];
+      const spend = ins ? Number(ins.spend) : 0;
+      const impressions = ins ? Number(ins.impressions) : 0;
+      const clicks = ins ? Number(ins.clicks) : 0;
+      const cpc = ins ? Number(ins.cpc) : 0;
+      let conversions = 0;
+      if (ins && Array.isArray(ins.actions)) {
+        for (const a of ins.actions) {
+          if (
+            a.action_type.includes('conversion') ||
+            a.action_type.includes('messaging') ||
+            a.action_type === 'purchase' ||
+            a.action_type === 'lead'
+          ) {
+            conversions += Number(a.value) || 0;
+          }
+        }
+      }
+
+      let objectiveLabel = 'Vendas / Conversão';
+      if (c.objective === 'OUTCOME_TRAFFIC' || c.objective === 'LINK_CLICKS') objectiveLabel = 'Tráfego & Cliques';
+      else if (c.objective === 'OUTCOME_AWARENESS') objectiveLabel = 'Reconhecimento de Marca';
+      else if (c.objective === 'OUTCOME_ENGAGEMENT') objectiveLabel = 'Engajamento & Mensagens';
+      else if (c.objective === 'OUTCOME_LEADS') objectiveLabel = 'Geração de Leads';
+
+      return {
+        id: c.id,
+        companyId,
+        platform: 'META',
+        name: c.name,
+        objective: objectiveLabel,
+        status: (c.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED') as 'ACTIVE' | 'PAUSED',
+        dailyBudget: c.daily_budget ? Number(c.daily_budget) / 100 : (c.lifetime_budget ? Number(c.lifetime_budget) / 100 : 50),
+        spendToday: spend,
+        impressions,
+        clicks,
+        conversions,
+        cpa: conversions > 0 ? Number((spend / conversions).toFixed(2)) : (clicks > 0 ? cpc : 0),
+        roas: conversions > 0 ? Number(((conversions * 80) / (spend || 1)).toFixed(1)) : 0,
+        autopilotStatus: c.status === 'ACTIVE' ? 'Ativo e Monitorando' : 'Pausado na Meta',
+        adCopy: 'Campanha oficial importada da Meta Ads',
+        targetUrl: ''
+      };
+    });
+
+    db.campaigns = db.campaigns.filter(c => !(c.companyId === companyId && c.platform === 'META'));
+    db.campaigns.push(...imported);
+    return imported;
+  } catch (err: any) {
+    console.error('Falha ao sincronizar campanhas da Meta:', err.message);
+    return [];
+  }
+}
+
+app.get('/api/campaigns/:companyId', async (req: Request, res: Response) => {
   const { companyId } = req.params;
-  const list = db.campaigns.filter(c => c.companyId === companyId);
+  let list = db.campaigns.filter(c => c.companyId === companyId);
+  const conn = db.connections.find(c => c.companyId === companyId && c.platform === 'META' && c.connected);
+  if (conn && (!list.some(c => c.platform === 'META') || req.query.sync === 'true')) {
+    await syncMetaCampaigns(companyId);
+    list = db.campaigns.filter(c => c.companyId === companyId);
+  }
   res.json({ success: true, campaigns: list });
 });
 
-app.post('/api/campaigns', (req: Request, res: Response) => {
+app.post('/api/campaigns/sync/:companyId', async (req: Request, res: Response) => {
+  const { companyId } = req.params;
+  const imported = await syncMetaCampaigns(companyId);
+  const all = db.campaigns.filter(c => c.companyId === companyId);
+  res.json({
+    success: true,
+    message: `${imported.length} campanhas sincronizadas diretamente da sua conta de anúncios!`,
+    campaigns: all
+  });
+});
+
+app.post('/api/campaigns', async (req: Request, res: Response) => {
   const { companyId, platform, name, objective, dailyBudget, adCopy, targetUrl } = req.body;
   if (!name || !companyId) return res.status(400).json({ error: 'Nome e empresa são obrigatórios' });
 
+  let metaCampaignId = `camp-${Date.now()}`;
+  let createdOnMeta = false;
+
+  const conn = db.connections.find(c => c.companyId === companyId && c.platform === 'META' && c.connected);
+  const token = (conn as any)?.accessToken || (masterApiConfig as any).metaLongLivedToken;
+
+  if (conn && conn.accountId && token && (platform === 'META' || !platform)) {
+    try {
+      const actId = conn.accountId.startsWith('act_') ? conn.accountId : `act_${conn.accountId}`;
+      let metaObjective = 'OUTCOME_TRAFFIC';
+      if (objective?.toLowerCase().includes('venda') || objective?.toLowerCase().includes('convers')) {
+        metaObjective = 'OUTCOME_SALES';
+      } else if (objective?.toLowerCase().includes('msg') || objective?.toLowerCase().includes('whats') || objective?.toLowerCase().includes('engaja')) {
+        metaObjective = 'OUTCOME_ENGAGEMENT';
+      } else if (objective?.toLowerCase().includes('lead') || objective?.toLowerCase().includes('cadastro')) {
+        metaObjective = 'OUTCOME_LEADS';
+      }
+
+      const createUrl = `https://graph.facebook.com/v19.0/${actId}/campaigns`;
+      const metaRes = await fetch(createUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          objective: metaObjective,
+          status: 'PAUSED',
+          special_ad_categories: [],
+          access_token: token
+        })
+      });
+      const metaData = (await metaRes.json()) as any;
+      if (metaData.id) {
+        metaCampaignId = metaData.id;
+        createdOnMeta = true;
+      }
+    } catch (e: any) {
+      console.warn('Erro ao criar campanha na Meta:', e.message);
+    }
+  }
+
   const newCampaign = {
-    id: `camp-${Date.now()}`,
+    id: metaCampaignId,
     companyId,
     platform: platform || 'META',
     name,
     objective: objective || 'Conversão / Vendas',
-    status: 'ACTIVE' as const,
+    status: 'PAUSED' as const,
     dailyBudget: Number(dailyBudget) || 100,
     spendToday: 0,
     impressions: 0,
@@ -903,13 +1052,13 @@ app.post('/api/campaigns', (req: Request, res: Response) => {
     conversions: 0,
     cpa: 0,
     roas: 0,
-    autopilotStatus: 'Ativo e Monitorando',
+    autopilotStatus: createdOnMeta ? 'Sincronizado na Meta (Pausado)' : 'Ativo e Monitorando',
     adCopy: adCopy || '',
     targetUrl: targetUrl || ''
   };
 
-  db.campaigns.push(newCampaign);
-  res.status(201).json({ success: true, campaign: newCampaign });
+  db.campaigns.unshift(newCampaign);
+  res.status(201).json({ success: true, campaign: newCampaign, createdOnMeta });
 });
 
 app.patch('/api/campaigns/:id/toggle', (req: Request, res: Response) => {

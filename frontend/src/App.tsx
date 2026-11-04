@@ -603,6 +603,26 @@ export default function App() {
   const [oauthToast, setOauthToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isInstantAuthModalOpen, setIsInstantAuthModalOpen] = useState(false);
   const [instantAuthPlatform, setInstantAuthPlatform] = useState<Platform>('META');
+  const [isSyncingMeta, setIsSyncingMeta] = useState(false);
+
+  const handleSyncMetrics = async (connAccountName?: string) => {
+    setIsSyncingMeta(true);
+    try {
+      const res = await fetch(`/api/campaigns/sync/${selectedCompanyId}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.campaigns) {
+        setCampaigns(data.campaigns);
+        localStorage.setItem('socialpulse_campaigns', JSON.stringify(data.campaigns));
+        alert(`🔄 ${data.message || 'Métricas e campanhas sincronizadas com sucesso!'}`);
+      } else {
+        alert('Nenhuma campanha encontrada para sincronizar.');
+      }
+    } catch (e: any) {
+      alert(`Erro ao sincronizar: ${e.message}`);
+    } finally {
+      setIsSyncingMeta(false);
+    }
+  };
 
   // Carregar configurações de API do Admin e checar retorno de OAuth
   useEffect(() => {
@@ -614,6 +634,16 @@ export default function App() {
         }
       })
       .catch(err => console.log('Erro ao carregar api-config:', err));
+
+    // Carregar campanhas sincronizadas do backend
+    fetch(`/api/campaigns/${selectedCompanyId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.campaigns && data.campaigns.length > 0) {
+          setCampaigns(data.campaigns);
+        }
+      })
+      .catch(err => console.log('Erro ao carregar campanhas:', err));
 
     const params = new URLSearchParams(window.location.search);
     const oauthStatus = params.get('oauth');
@@ -1013,30 +1043,56 @@ export default function App() {
     setNewCompanyWpp('');
   };
 
-  const handleCreateCampaign = (e: React.FormEvent) => {
+  const handleCreateCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCampName) return;
 
-    const newCamp: Campaign = {
-      id: `camp-${Date.now()}`,
-      companyId: selectedCompanyId,
-      platform: newCampPlatform,
-      name: newCampName,
-      objective: newCampObjective,
-      status: 'ACTIVE',
-      dailyBudget: Number(newCampBudget) || 100,
-      spendToday: 0,
-      impressions: 0,
-      clicks: 0,
-      conversions: 0,
-      cpa: 0,
-      roas: 0,
-      autopilotStatus: 'Monitoramento Ativo',
-      adCopy: newCampCopy,
-      targetUrl: newCampTarget
-    };
+    try {
+      const res = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: selectedCompanyId,
+          platform: newCampPlatform,
+          name: newCampName,
+          objective: newCampObjective,
+          dailyBudget: Number(newCampBudget) || 100,
+          adCopy: newCampCopy,
+          targetUrl: newCampTarget
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.campaign) {
+        setCampaigns(prev => [data.campaign, ...prev]);
+        if (data.createdOnMeta) {
+          alert(`🚀 Campanha criada com sucesso e enviada oficialmente à Meta Ads!\nID: ${data.campaign.id}\nStatus: PAUSADO (para sua segurança e revisão antes da veiculação).`);
+        } else {
+          alert('✅ Campanha criada com sucesso no painel!');
+        }
+      }
+    } catch (err: any) {
+      console.warn('Erro ao salvar campanha no backend, mantendo local:', err);
+      const newCamp: Campaign = {
+        id: `camp-${Date.now()}`,
+        companyId: selectedCompanyId,
+        platform: newCampPlatform,
+        name: newCampName,
+        objective: newCampObjective,
+        status: 'ACTIVE',
+        dailyBudget: Number(newCampBudget) || 100,
+        spendToday: 0,
+        impressions: 0,
+        clicks: 0,
+        conversions: 0,
+        cpa: 0,
+        roas: 0,
+        autopilotStatus: 'Monitoramento Ativo',
+        adCopy: newCampCopy,
+        targetUrl: newCampTarget
+      };
+      setCampaigns(prev => [newCamp, ...prev]);
+    }
 
-    setCampaigns(prev => [newCamp, ...prev]);
     setIsCampaignModalOpen(false);
     setNewCampName('');
     setNewCampCopy('');
@@ -3200,13 +3256,25 @@ export default function App() {
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setIsCampaignModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  Criar Nova Campanha
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={isSyncingMeta}
+                    onClick={() => handleSyncMetrics()}
+                    className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-semibold border border-slate-700 cursor-pointer disabled:opacity-50"
+                    title="Sincronizar campanhas oficiais diretamente da Meta Ads"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isSyncingMeta ? 'animate-spin' : ''}`} />
+                    {isSyncingMeta ? 'Sincronizando...' : 'Sincronizar da Meta'}
+                  </button>
+
+                  <button
+                    onClick={() => setIsCampaignModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Criar Nova Campanha
+                  </button>
+                </div>
               </div>
 
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
@@ -3655,13 +3723,12 @@ export default function App() {
                               </button>
                               <div className="flex items-center gap-1.5">
                                 <button
-                                  onClick={() => {
-                                    alert(`🔄 Métricas da conta ${conn.accountName} sincronizadas com sucesso!`);
-                                  }}
-                                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold cursor-pointer"
-                                  title="Sincronizar Métricas Agora"
+                                  disabled={isSyncingMeta}
+                                  onClick={() => handleSyncMetrics(conn.accountName)}
+                                  className="px-2.5 py-1.5 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                                  title="Sincronizar Campanhas & Métricas da Meta Agora"
                                 >
-                                  Sincronizar
+                                  {isSyncingMeta ? '⏳ Sincronizando...' : '🔄 Sincronizar'}
                                 </button>
                                 <button
                                   onClick={() => {
